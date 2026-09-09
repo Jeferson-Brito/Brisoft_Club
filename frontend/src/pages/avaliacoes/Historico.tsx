@@ -203,7 +203,7 @@ export default function Historico() {
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
                 {historyData.slice(0, 8).map((item, idx) => (
-                  <tr key={idx} className={`hover:bg-slate-50/60 transition-colors cursor-pointer ${selectedEval?.employee === item.employee && selectedEval?.date === item.date ? 'bg-blue-50/30' : ''}`} onClick={() => setSelectedEval(item as Evaluation)}>
+                  <tr key={idx} className={`hover:bg-slate-50/60 transition-colors cursor-pointer ${selectedEval?.id === item.id ? 'bg-blue-50/30' : ''}`} onClick={() => setSelectedEval(item as Evaluation)}>
                     <td className="py-3 pl-5 pr-3 text-slate-600 font-medium">{item.date}</td>
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2.5">

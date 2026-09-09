@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useData } from '../../app/state';
 import {
   LayoutDashboard, Star, Trophy, Users, Building2, Calendar,
   Award, Upload, BarChart3, UserCog, Settings, ChevronDown,
@@ -51,6 +52,9 @@ const QUOTES = [
 ];
 
 export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+  const { data } = useData();
+  const permissionFor: Record<string, string> = {'Dashboard':'dashboard','Avaliações':'evaluate','Ranking':'ranking','Colaboradores':'employees','Clientes':'clients','Temporadas':'seasons','Conquistas':'achievements','Importações':'imports','Relatórios':'reports','Usuários e Acessos':'users','Configurações':'settings'};
+  const visibleNav = NAV.filter(item => data.role.permissions.includes(permissionFor[item.label]) || (item.label==='Avaliações' && data.role.permissions.includes('evaluations'))).map(item => ({...item,children:item.children?.filter(child => child.path!=='/avaliacoes/avaliar'||data.role.permissions.includes('evaluate'))}));
   const location = useLocation();
   const [open, setOpen] = useState<string[]>(['Avaliações', 'Ranking']);
 
@@ -92,7 +96,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-        {NAV.map(item => {
+        {visibleNav.map(item => {
           if (item.path) {
             return (
               <NavLink

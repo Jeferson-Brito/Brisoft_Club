@@ -77,7 +77,7 @@ export default function Avaliar() {
         </div>
       </div>
 
-      <div className="flex gap-5">
+      <div className="flex flex-col xl:flex-row gap-5">
         {/* Main form */}
         <div className="flex-1 min-w-0 space-y-4">
           {/* Employee card */}
@@ -183,7 +183,7 @@ export default function Avaliar() {
         </div>
 
         {/* Right panel */}
-        <div className="w-72 flex-shrink-0 space-y-4">
+        <div className="w-full xl:w-72 flex-shrink-0 space-y-4">
           {/* Next collaborators */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
             <h3 className="font-semibold text-slate-700 text-sm mb-3">Próximos colaboradores</h3>
@@ -253,22 +253,22 @@ export default function Avaliar() {
 
       {/* Bottom actions */}
       {!confirmed && (
-        <div className="flex items-center justify-between mt-6 bg-white border border-slate-100 rounded-2xl px-5 py-4 shadow-sm">
-          <button className="flex items-center gap-2 text-sm text-slate-500 font-semibold hover:text-red-500 transition-colors">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-6 bg-white border border-slate-100 rounded-2xl px-5 py-4 shadow-sm gap-4">
+          <button className="flex items-center justify-center gap-2 text-sm text-slate-500 font-semibold hover:text-red-500 transition-colors w-full sm:w-auto">
             <XCircle size={16} />
             Marcar como não consigo avaliar
           </button>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
             <button
               onClick={() => { if (currentIdx + 1 < total) setCurrentIdx(i => i + 1); }}
-              className="flex items-center gap-2 text-sm font-semibold text-slate-600 border border-slate-200 rounded-xl px-4 py-2 hover:bg-slate-50 transition-colors"
+              className="flex items-center justify-center gap-2 text-sm font-semibold text-slate-600 border border-slate-200 rounded-xl px-4 py-2 hover:bg-slate-50 transition-colors w-full sm:w-auto"
             >
               Pular este colaborador <SkipForward size={14} />
             </button>
             <button
               onClick={handleSubmit}
               disabled={!allRated}
-              className="flex items-center gap-2 text-sm font-semibold text-white bg-blue-600 rounded-xl px-5 py-2 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+              className="flex items-center justify-center gap-2 text-sm font-semibold text-white bg-blue-600 rounded-xl px-5 py-2 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm w-full sm:w-auto"
             >
               Enviar avaliação e ir ao próximo <Send size={14} />
             </button>

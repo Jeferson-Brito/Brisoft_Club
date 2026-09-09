@@ -18,11 +18,11 @@ export function TopBar({ onToggleSidebar, placeholder = 'Buscar colaboradores, c
 
       {/* Search */}
       <div className="flex-1 max-w-md relative">
-        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
           placeholder={placeholder}
-          className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all placeholder:text-slate-400"
+          className="w-full pl-11 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-all placeholder:text-slate-400"
         />
       </div>
 

@@ -103,7 +103,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── KPI Cards — 4 colunas ────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-4">
 
         {/* Colaboradores */}
         <Card className="p-5 flex items-center gap-4">
@@ -167,7 +167,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Row 2 — 3 colunas ────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
 
         {/* Progresso das Avaliações */}
         <Card className="p-5">
@@ -282,7 +282,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Row 3 — 3 colunas ────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
 
         {/* Top 5 Colaboradores */}
         <Card className="p-5">

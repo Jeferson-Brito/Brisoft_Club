@@ -83,6 +83,7 @@ export interface User {
 }
 
 export interface Evaluation {
+  id?: number;
   date: string;
   employee: string;
   registration: string;

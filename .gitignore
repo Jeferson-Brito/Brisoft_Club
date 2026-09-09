@@ -23,6 +23,8 @@ yarn-debug.log*
 yarn-error.log*
 
 # Runtime data
+backend/data/
+.npm-cache/
 pids/
 *.pid
 *.seed
