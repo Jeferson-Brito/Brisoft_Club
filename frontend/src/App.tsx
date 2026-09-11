@@ -36,6 +36,9 @@ function ContextHelp() {
   const [help, setHelp] = useState<{ text: string; left: number; top: number }>();
   useEffect(() => {
     const description = (element: Element) => {
+      if (element.closest(".sidebar-minimal, .sidebar-shell, aside, nav, .bottom-nav, .mobile-bottom-nav, .app-header, header")) {
+        return "";
+      }
       const explicit = element.getAttribute("data-help") || element.getAttribute("aria-label") || element.getAttribute("title");
       if (explicit) return explicit;
       const label = element.closest("label")?.querySelector("span")?.textContent?.trim() ||
@@ -49,7 +52,7 @@ function ContextHelp() {
     };
     const handler = (event: MouseEvent) => {
       const target = (event.target as HTMLElement | null)?.closest("button, input, select, textarea, a");
-      if (!target) {
+      if (!target || target.closest(".sidebar-minimal, .sidebar-shell, aside, nav, .bottom-nav, .mobile-bottom-nav, .app-header, header")) {
         setHelp(undefined);
         return;
       }

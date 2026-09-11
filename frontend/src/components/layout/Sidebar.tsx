@@ -177,7 +177,6 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile }: { collapsed: boo
                         event.currentTarget.blur();
                         onCloseMobile?.();
                       }}
-                      data-help={child.label === 'Vínculos de trabalho' ? 'Define em qual empresa e posto cada colaborador trabalha, com data de início e responsável opcional.' : `Abre a área ${child.label}.`}
                     >
                       <span className="w-1 h-1 rounded-full bg-current opacity-60 flex-shrink-0" />
                       {child.label}
