@@ -1021,6 +1021,9 @@ td:first-child {
     backdrop-filter: blur(10px) !important;
     -webkit-backdrop-filter: blur(10px) !important;
   }
+  .desktop-only-sidebar-toggle {
+    display: none !important;
+  }
   .user-button > span {
     display: none;
   }

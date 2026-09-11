@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -9,7 +9,7 @@ import {
   NavLink,
   useLocation,
 } from "react-router-dom";
-import { Menu, Bell, Search, LogOut, LayoutDashboard, Star, Clock, Trophy, CheckCircle2 } from "lucide-react";
+import { Menu, Bell, LogOut, LayoutDashboard, Star, Clock, Trophy, CheckCircle2, ChevronDown, KeyRound } from "lucide-react";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Avatar } from "./components/ui/Avatar";
 import { api, DataProvider, useData } from "./app/state";
@@ -31,6 +31,7 @@ import { Imports } from "./app/Imports";
 import { Reports } from "./app/Reports";
 import { Editor, Panel } from "./app/ui";
 import "./app/style.css";
+
 function ContextHelp() {
   const [help, setHelp] = useState<{ text: string; left: number; top: number }>();
   useEffect(() => {
@@ -43,94 +44,29 @@ function ContextHelp() {
       if (element.matches("select")) return `Escolha uma opção para ${label}.`;
       if (element.matches("input, textarea")) return `Preencha ${label}.`;
       if (element.matches("a")) return `Abre ${text || "esta área"}.`;
-      const normalized = text.toLowerCase();
-      if (normalized.includes("filtro")) return "Mostra ou oculta as opções para refinar os resultados.";
-      if (normalized.includes("salvar")) return "Salva as informações preenchidas.";
-      if (normalized.includes("editar")) return "Permite alterar as informações deste registro.";
-      if (normalized.includes("novo") || normalized.includes("nova")) return "Abre o formulário para criar um novo registro.";
-      if (normalized.includes("iniciar")) return "Inicia este período e libera os participantes elegíveis.";
-      if (normalized.includes("encerrar")) return "Encerra o período e bloqueia novos envios.";
-      if (normalized.includes("exportar")) return "Baixa os dados exibidos em uma planilha.";
-      if (normalized.includes("limpar")) return "Remove os filtros selecionados.";
-      if (normalized.includes("ver")) return "Abre os detalhes deste registro.";
-      return text ? `Executa a ação “${text}”.` : "Executa esta ação.";
+      if (element.matches("button")) return `Executa a ação de ${text || label}.`;
+      return "";
     };
-    const show = (event: Event) => {
-      const element = (event.target as Element | null)?.closest("button, a, input, select, textarea, [data-help]");
-      if (!element) return;
-      const rect = element.getBoundingClientRect();
-      setHelp({ text: description(element), left: Math.max(12, Math.min(rect.left, window.innerWidth - 300)), top: Math.min(window.innerHeight - 70, rect.bottom + 8) });
+    const handler = (event: MouseEvent) => {
+      const target = (event.target as HTMLElement | null)?.closest("button, input, select, textarea, a");
+      if (!target) {
+        setHelp(undefined);
+        return;
+      }
+      const text = description(target);
+      if (!text) {
+        setHelp(undefined);
+        return;
+      }
+      const rect = target.getBoundingClientRect();
+      const left = Math.min(Math.max(rect.left + rect.width / 2, 130), window.innerWidth - 130);
+      const top = Math.max(12, rect.top - 38);
+      setHelp({ text, left, top });
     };
-    const hide = () => setHelp(undefined);
-    document.addEventListener("mouseover", show);
-    document.addEventListener("focusin", show);
-    document.addEventListener("mouseout", hide);
-    document.addEventListener("focusout", hide);
-    return () => {
-      document.removeEventListener("mouseover", show);
-      document.removeEventListener("focusin", show);
-      document.removeEventListener("mouseout", hide);
-      document.removeEventListener("focusout", hide);
-    };
+    window.addEventListener("mouseover", handler);
+    return () => window.removeEventListener("mouseover", handler);
   }, []);
   return help ? <div role="tooltip" className="context-help-tooltip" style={{ left: help.left, top: help.top }}>{help.text}</div> : null;
-}
-function getTabInfo(pathname: string) {
-  if (pathname === "/" || pathname === "") {
-    return { section: "Geral", tab: "Dashboard" };
-  }
-  if (pathname.startsWith("/avaliacoes/avaliar")) {
-    return { section: "Avaliações", tab: "Avaliar" };
-  }
-  if (pathname.startsWith("/avaliacoes/pendentes")) {
-    return { section: "Avaliações", tab: "Pendentes" };
-  }
-  if (pathname.startsWith("/avaliacoes/concluidas")) {
-    return { section: "Avaliações", tab: "Concluídas" };
-  }
-  if (pathname.startsWith("/avaliacoes/historico")) {
-    return { section: "Avaliações", tab: "Histórico" };
-  }
-  if (pathname.startsWith("/avaliacoes/nao-avaliados")) {
-    return { section: "Avaliações", tab: "Não Avaliados" };
-  }
-  if (pathname.startsWith("/ranking/geral")) {
-    return { section: "Desempenho", tab: "Ranking Geral" };
-  }
-  if (pathname.startsWith("/ranking/cliente")) {
-    return { section: "Desempenho", tab: "Ranking por Cliente" };
-  }
-  if (pathname.startsWith("/conquistas")) {
-    return { section: "Desempenho", tab: "Conquistas" };
-  }
-  if (pathname.startsWith("/colaboradores/gestao")) {
-    return { section: "Cadastros", tab: "Vínculos" };
-  }
-  if (pathname.startsWith("/colaboradores")) {
-    return { section: "Cadastros", tab: "Colaboradores" };
-  }
-  if (pathname.startsWith("/clientes/gestao")) {
-    return { section: "Cadastros", tab: "Postos" };
-  }
-  if (pathname.startsWith("/clientes")) {
-    return { section: "Cadastros", tab: "Clientes" };
-  }
-  if (pathname.startsWith("/importacoes")) {
-    return { section: "Dados", tab: "Importações" };
-  }
-  if (pathname.startsWith("/relatorios")) {
-    return { section: "Dados", tab: "Relatórios" };
-  }
-  if (pathname.startsWith("/temporadas")) {
-    return { section: "Administração", tab: "Temporadas" };
-  }
-  if (pathname.startsWith("/usuarios")) {
-    return { section: "Administração", tab: "Usuários" };
-  }
-  if (pathname.startsWith("/configuracoes")) {
-    return { section: "Administração", tab: "Configurações" };
-  }
-  return null;
 }
 
 function Layout({ logout }: { logout: () => void }) {
@@ -139,14 +75,30 @@ function Layout({ logout }: { logout: () => void }) {
   const [mobile, setMobile] = useState(false);
   const [notifications, setNotifications] = useState(false);
   const [password, setPassword] = useState(false);
-  const [search, setSearch] = useState("");
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
-  const tabInfo = getTabInfo(location.pathname);
   const evaluator = data.role.permissions.includes("evaluate");
+
   useEffect(() => {
     setMobile(false);
-    setSearch("");
+    setUserMenuOpen(false);
+    setNotifications(false);
   }, [location.pathname]);
+
+  // Click outside to close user dropdown menu
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    if (userMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [userMenuOpen]);
+
   const pending = data.participants.filter(
     (p) =>
       data.cycles.find((c) => c.id === p.cycleId)?.status === "ativo" &&
@@ -158,6 +110,7 @@ function Layout({ logout }: { logout: () => void }) {
           e.status !== "rascunho",
       ),
   ).length;
+
   return (
     <div className={`app-shell ${collapsed ? "collapsed" : ""}`}>
       <div className={`sidebar-shell ${mobile ? "mobile-open" : ""}`}>
@@ -175,64 +128,16 @@ function Layout({ logout }: { logout: () => void }) {
         />
       )}
       <div className="app-main">
-        <header className="app-topbar">
+        <header className="app-topbar flex items-center justify-between">
           <button
-            className="icon-btn hidden md:inline-flex"
+            className="icon-btn desktop-only-sidebar-toggle hidden md:inline-flex"
             aria-label="Alternar menu"
             onClick={() => setCollapsed(!collapsed)}
           >
             <Menu size={20} />
           </button>
-          {tabInfo && (
-            <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium px-2.5 py-1 bg-slate-100/90 rounded-lg border border-slate-200/70 flex-shrink-0 shadow-2xs">
-              <span className="text-slate-400 hidden sm:inline">{tabInfo.section}</span>
-              <span className="text-slate-300 hidden sm:inline">/</span>
-              <span className="text-slate-700 font-semibold">{tabInfo.tab}</span>
-            </div>
-          )}
-          <div className="global-search">
-            <Search size={17} />
-            <input
-              aria-label="Busca global"
-              placeholder="Buscar colaboradores e clientes…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {search && (
-              <div className="search-results">
-                {data.role.permissions.includes("employees") &&
-                  data.employees
-                    .filter((e) =>
-                      `${e.name} ${e.registration}`
-                        .toLowerCase()
-                        .includes(search.toLowerCase()),
-                    )
-                    .slice(0, 5)
-                    .map((e) => (
-                      <Link key={e.id} to="/colaboradores">
-                        {e.name}
-                        <small>Colaborador · {e.registration}</small>
-                      </Link>
-                    ))}
-                {data.role.permissions.includes("clients") &&
-                  data.clients
-                    .filter((c) =>
-                      c.name.toLowerCase().includes(search.toLowerCase()),
-                    )
-                    .slice(0, 5)
-                    .map((c) => (
-                      <Link key={c.id} to="/clientes">
-                        {c.name}
-                        <small>Cliente</small>
-                      </Link>
-                    ))}
-                <small>
-                  Abra a lista e utilize os filtros para localizar o registro.
-                </small>
-              </div>
-            )}
-          </div>
-          <div className="topbar-right">
+
+          <div className="topbar-right ml-auto flex items-center gap-3">
             {evaluator && (
               <button
                 className="icon-btn notification-button"
@@ -243,21 +148,61 @@ function Layout({ logout }: { logout: () => void }) {
                 {pending > 0 && <span>{pending}</span>}
               </button>
             )}
-            <button
-              className="user-button"
-              onClick={() => setPassword(true)}
-              title="Alterar minha senha"
-            >
-              <Avatar name={data.user.name} size="sm" />
-              <span>
-                <strong>{data.user.name}</strong>
-                <small>{data.role.name}</small>
-              </span>
-            </button>
-            <button className="icon-btn" aria-label="Sair" onClick={logout}>
-              <LogOut size={18} />
-            </button>
+
+            {/* Menu suspenso ao clicar na foto do usuário */}
+            <div className="relative" ref={userMenuRef}>
+              <button
+                type="button"
+                className="user-button flex items-center gap-2 cursor-pointer p-1 rounded-xl hover:bg-slate-100 transition-colors"
+                onClick={() => setUserMenuOpen((prev) => !prev)}
+                aria-label="Menu do usuário"
+                aria-expanded={userMenuOpen}
+              >
+                <Avatar name={data.user.name} size="sm" />
+                <span className="hidden sm:inline-block text-left leading-tight">
+                  <strong className="block text-xs font-bold text-slate-800">{data.user.name}</strong>
+                  <small className="block text-[10px] text-slate-400">{data.role.name}</small>
+                </span>
+                <ChevronDown size={14} className={`text-slate-400 transition-transform hidden sm:block ${userMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {userMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-1.5 z-50 animate-in fade-in zoom-in-95">
+                  <div className="px-3.5 py-2.5 border-b border-slate-100">
+                    <p className="text-xs font-bold text-slate-800 truncate">{data.user.name}</p>
+                    <p className="text-[11px] text-slate-400 truncate">{data.role.name}</p>
+                  </div>
+
+                  <div className="py-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        setPassword(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors text-left font-medium cursor-pointer"
+                    >
+                      <KeyRound size={15} className="text-slate-400" />
+                      <span>Alterar minha senha</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        logout();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-rose-600 hover:bg-rose-50 transition-colors text-left font-semibold cursor-pointer border-t border-slate-100/80 mt-1 pt-2"
+                    >
+                      <LogOut size={15} className="text-rose-500" />
+                      <span>Sair do sistema</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+
           {evaluator && notifications && (
             <div className="notification-panel">
               <h3>Seu acompanhamento</h3>
