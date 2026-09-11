@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   ChevronRight, ChevronLeft, ChevronDown, Send, User, MapPin, Hash,
-  UserCheck, CheckCircle2, Calendar, Award, Check, Star, FileText,
+  UserCheck, CheckCircle2, Calendar, Star, FileText,
   Building2, RotateCcw, Save, X, Pencil
 } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
@@ -445,19 +445,6 @@ export default function Avaliar() {
                     );
                   })}
                 </div>
-
-                {ratings[currentCriterion.id] && (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-blue-50/60 p-2.5 rounded-xl border border-blue-100 mt-2.5">
-                    <span className="text-slate-400">Nota escolhida:</span>
-                    <span className="font-extrabold text-blue-700">
-                      {scale.find((s: any) => Number(s.value) === ratings[currentCriterion.id])?.label}
-                    </span>
-                    <span className="text-slate-300">·</span>
-                    <span className="text-slate-600 font-medium text-[11px]">
-                      {scale.find((s: any) => Number(s.value) === ratings[currentCriterion.id])?.points} pts × peso {currentCriterion.weight} = <strong className="text-blue-700 font-bold">{((scale.find((s: any) => Number(s.value) === ratings[currentCriterion.id])?.points || 0) * currentCriterion.weight).toFixed(1)} pts</strong>
-                    </span>
-                  </div>
-                )}
               </div>
 
               {/* Criterion Specific Comment */}
@@ -639,82 +626,28 @@ export default function Avaliar() {
           )}
         </div>
 
-        {/* ── Right Panel (Colaboradores na fila) ── */}
-        <div className="w-full lg:w-[280px] xl:w-[300px] flex-shrink-0 space-y-3.5">
-          {/* Next collaborators */}
-          <details className="lg:open bg-white rounded-2xl p-3.5 shadow-xs border border-slate-200/80 group" open>
-            <summary className="flex items-center justify-between cursor-pointer font-bold text-slate-700 text-xs uppercase tracking-wider mb-1 lg:mb-2.5">
-              <span>Fila de Avaliação ({total - evaluated})</span>
-              <ChevronDown size={14} className="text-slate-400 group-open:rotate-180 transition-transform lg:hidden" />
-            </summary>
-            <div className="space-y-1 max-h-[320px] lg:max-h-[380px] overflow-y-auto pr-1">
-              {toEvaluate.map((emp, i) => {
-                const isDone = done.includes(emp.id);
-                const isCurrent = i === currentIdx;
-                const empDraft = data?.user?.id
-                  ? localStorage.getItem(`clube_eval_draft_v2_${data.user.id}_${emp.participantId}`)
-                  : null;
-
-                return (
-                  <div
-                    key={emp.id}
-                    className={`flex items-center gap-2 p-2 rounded-xl cursor-pointer transition-colors ${
-                      isCurrent ? 'bg-blue-50/90 border border-blue-200/80 shadow-2xs' :
-                      isDone ? 'opacity-60 bg-slate-50/60' : 'hover:bg-slate-50'
-                    }`}
-                    onClick={() => !isDone && setCurrentIdx(i)}
-                  >
-                    <span className={`text-xs font-bold w-4 text-center flex-shrink-0 ${isCurrent ? 'text-blue-600' : 'text-slate-400'}`}>
-                      {i + 1}
-                    </span>
-
-                    <div className="relative flex-shrink-0">
-                      <Avatar name={emp.name} src={emp.photo} size="sm" />
-                      {empDraft && !isDone && (
-                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-500 rounded-full border border-white" title="Possui rascunho salvo" />
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold text-slate-800 truncate">{emp.name}</div>
-                      <div className="text-[10px] text-slate-400 truncate">{emp.role} · {emp.post}</div>
-                    </div>
-
-                    {isDone && (
-                      <span className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center text-white flex-shrink-0">
-                        <Check size={10} strokeWidth={3} />
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-2.5 text-center text-[11px] font-semibold text-slate-400 border-t border-slate-100 pt-2">
-              {total} colaboradores para avaliar
-            </div>
-          </details>
-
-          {/* Já avaliados neste ciclo */}
-          {data?.evaluations && cycle?.id && (
-            (() => {
-              const completedInCycle = data.evaluations
-                .filter((e: any) => e.cycleId === cycle.id && e.evaluatorId === data.user?.id && e.status === 'enviada')
-                .map((e: any) => ({
-                  id: e.id,
-                  participantId: e.participantId,
-                  employee: e.snapshot?.name || '—',
-                  photo: e.snapshot?.photo || '',
-                  role: e.snapshot?.role || '—',
-                  score: e.score || 0,
-                }));
-              if (!completedInCycle.length) return null;
-              return (
-                <details className="bg-white rounded-2xl p-3.5 shadow-xs border border-slate-200/80 group">
+        {/* ── Colaboradores já avaliados (Permite Reavaliar) ── */}
+        {data?.evaluations && cycle?.id && (
+          (() => {
+            const completedInCycle = data.evaluations
+              .filter((e: any) => e.cycleId === cycle.id && e.evaluatorId === data.user?.id && e.status === 'enviada')
+              .map((e: any) => ({
+                id: e.id,
+                participantId: e.participantId,
+                employee: e.snapshot?.name || '—',
+                photo: e.snapshot?.photo || '',
+                role: e.snapshot?.role || '—',
+                score: e.score || 0,
+              }));
+            if (!completedInCycle.length) return null;
+            return (
+              <div className="w-full lg:w-[280px] xl:w-[300px] flex-shrink-0">
+                <details className="bg-white rounded-2xl p-3.5 shadow-xs border border-slate-200/80 group" open>
                   <summary className="flex items-center justify-between cursor-pointer font-bold text-slate-700 text-xs uppercase tracking-wider mb-1 lg:mb-2.5">
                     <span>Já avaliados ({completedInCycle.length})</span>
                     <ChevronDown size={14} className="text-slate-400 group-open:rotate-180 transition-transform" />
                   </summary>
-                  <div className="space-y-1.5 pt-1 max-h-[260px] overflow-y-auto pr-1">
+                  <div className="space-y-1.5 pt-1 max-h-[360px] overflow-y-auto pr-1">
                     {completedInCycle.map((ev: any) => (
                       <div key={ev.id} className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs">
                         <div className="flex items-center gap-2 min-w-0">
@@ -763,35 +696,10 @@ export default function Avaliar() {
                     ))}
                   </div>
                 </details>
-              );
-            })()
-          )}
-
-          {/* Cycle info */}
-          <details className="lg:open bg-white rounded-2xl p-3.5 shadow-xs border border-slate-200/80 group">
-            <summary className="flex items-center justify-between cursor-pointer font-bold text-slate-700 text-xs uppercase tracking-wider mb-1 lg:mb-2.5">
-              <span>Informações do ciclo</span>
-              <ChevronDown size={14} className="text-slate-400 group-open:rotate-180 transition-transform lg:hidden" />
-            </summary>
-            <div className="space-y-2 text-xs pt-1">
-              {[
-                { icon: <Calendar size={13} className="text-slate-400 flex-shrink-0" />, label: 'Temporada', value: season?.name || '—' },
-                { icon: <Award size={13} className="text-slate-400 flex-shrink-0" />, label: 'Ciclo', value: cycle?.name || '—' },
-                { icon: <Calendar size={13} className="text-slate-400 flex-shrink-0" />, label: 'Período', value: cycle ? `${cycle.start} a ${cycle.end}` : '—' },
-                { icon: <Calendar size={13} className="text-slate-400 flex-shrink-0" />, label: 'Prazo final', value: cycle?.deadline || '—' },
-                { icon: <CheckCircle2 size={13} className="text-slate-400 flex-shrink-0" />, label: 'Concluídas nesta sessão', value: `${evaluated} de ${total} (${completionPct}%)` },
-              ].map(({ icon, label, value }) => (
-                <div key={label} className="flex items-center justify-between gap-1 text-[11px]">
-                  <span className="flex items-center gap-1.5 text-slate-500">
-                    {icon}
-                    <span>{label}</span>
-                  </span>
-                  <span className="text-slate-700 font-semibold">{value}</span>
-                </div>
-              ))}
-            </div>
-          </details>
-        </div>
+              </div>
+            );
+          })()
+        )}
       </div>
 
       {/* ── Modal de visualização ampliada da foto do colaborador ── */}
