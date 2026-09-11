@@ -18,7 +18,14 @@ export default function RankingPorCliente() {
   const displayEmployees = clientEmployees;
 
   const ordered = [...displayEmployees].sort((a, b) => b.score - a.score);
-  const top3 = ordered.length >= 3 ? [ordered[1], ordered[0], ordered[2]] : [];
+  const clientEvaluated = ordered.filter(item => Number(item.score || 0) > 0);
+  const isGold = (item: any) => ['ouro', 'diamante'].includes(String(item.badge || '').toLowerCase());
+  const isSilver = (item: any) => String(item.badge || '').toLowerCase() === 'prata';
+  const isBronze = (item: any) => String(item.badge || '').toLowerCase() === 'bronze';
+
+  const clientGold = clientEvaluated.filter(isGold)[0] || null;
+  const clientSilver = clientEvaluated.filter(isSilver)[0] || null;
+  const clientBronze = clientEvaluated.filter(isBronze)[0] || null;
 
   const filteredClients = clients.filter(c =>
     c.name.toLowerCase().includes(clientSearch.toLowerCase())
@@ -129,61 +136,84 @@ export default function RankingPorCliente() {
                 <span>Top 3 - {currentClient.name}</span>
               </div>
 
-              {top3.length === 3 ? (
-                <div className="pt-2">
-                  <div className="grid grid-cols-3 gap-1.5 sm:gap-2 items-end pt-1">
-                    {/* 2º LUGAR */}
-                    <div className="flex flex-col items-center min-w-0">
+              <div className="pt-2">
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2 items-end pt-1">
+                  {/* 2º LUGAR (PRATA) */}
+                  <div className="flex flex-col items-center min-w-0">
+                    {clientSilver ? (
                       <div className="flex flex-col items-center w-full mb-1">
                         <span className="text-[9px] font-bold text-slate-500 mb-0.5">🥈 2º</span>
                         <div className="w-10 h-10 rounded-full ring-2 ring-slate-300 ring-offset-1 overflow-hidden shadow-2xs mb-1">
-                          <Avatar name={top3[0].name} src={top3[0].photo} size="sm" />
+                          <Avatar name={clientSilver.name} src={clientSilver.photo} size="sm" />
                         </div>
-                        <div className="font-bold text-slate-800 text-[10px] truncate max-w-full text-center px-0.5">{top3[0].name}</div>
-                        <div className="text-[11px] font-black text-slate-700 mt-0.5">{top3[0].score} <span className="text-[8px] font-normal text-slate-400">pts</span></div>
+                        <div className="font-bold text-slate-800 text-[10px] truncate max-w-full text-center px-0.5">{clientSilver.name}</div>
+                        <div className="text-[11px] font-black text-slate-700 mt-0.5">{clientSilver.score} <span className="text-[8px] font-normal text-slate-400">pts</span></div>
                       </div>
-                      <div className="w-full h-14 rounded-t-lg bg-gradient-to-t from-slate-200 via-slate-100 to-white border-t-2 border-x border-slate-300 flex flex-col items-center justify-center">
-                        <span className="text-xl font-black text-slate-400/40 select-none">2</span>
-                        <span className="text-[8px] font-bold text-slate-500 uppercase">Prata</span>
+                    ) : (
+                      <div className="flex flex-col items-center w-full mb-1 opacity-50">
+                        <span className="text-[9px] font-bold text-slate-400 mb-0.5">🥈 2º</span>
+                        <div className="w-9 h-9 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 text-xs mb-1">?</div>
+                        <div className="text-[9px] text-slate-400">Aguardando</div>
                       </div>
+                    )}
+                    <div className="w-full h-14 rounded-t-lg bg-gradient-to-t from-slate-200 via-slate-100 to-white border-t-2 border-x border-slate-300 flex flex-col items-center justify-center">
+                      <span className="text-xl font-black text-slate-400/40 select-none">2</span>
+                      <span className="text-[8px] font-bold text-slate-500 uppercase">Prata</span>
                     </div>
+                  </div>
 
-                    {/* 1º LUGAR */}
-                    <div className="flex flex-col items-center min-w-0 z-10">
+                  {/* 1º LUGAR (OURO) */}
+                  <div className="flex flex-col items-center min-w-0 z-10">
+                    {clientGold ? (
                       <div className="flex flex-col items-center w-full mb-1">
                         <Crown size={14} className="text-amber-500 fill-amber-400 mb-0.5" />
                         <span className="text-[9px] font-extrabold text-amber-700 mb-0.5">🥇 1º</span>
                         <div className="w-12 h-12 rounded-full ring-3 ring-amber-400 ring-offset-1 overflow-hidden shadow-xs mb-1">
-                          <Avatar name={top3[1].name} src={top3[1].photo} size="md" />
+                          <Avatar name={clientGold.name} src={clientGold.photo} size="md" />
                         </div>
-                        <div className="font-extrabold text-slate-900 text-[11px] truncate max-w-full text-center px-0.5">{top3[1].name}</div>
-                        <div className="text-xs font-black text-amber-700 mt-0.5">{top3[1].score} <span className="text-[8px] font-normal text-amber-500">pts</span></div>
+                        <div className="font-extrabold text-slate-900 text-[11px] truncate max-w-full text-center px-0.5">{clientGold.name}</div>
+                        <div className="text-xs font-black text-amber-700 mt-0.5">{clientGold.score} <span className="text-[8px] font-normal text-amber-500">pts</span></div>
                       </div>
-                      <div className="w-full h-20 rounded-t-xl bg-gradient-to-t from-amber-400 via-amber-300 to-amber-100 border-t-2 border-x border-amber-300 shadow-2xs flex flex-col items-center justify-center">
-                        <span className="text-2xl font-black text-amber-800/40 select-none">1</span>
-                        <span className="text-[8px] font-black text-amber-900 uppercase">Ouro</span>
+                    ) : (
+                      <div className="flex flex-col items-center w-full mb-1 opacity-50">
+                        <Crown size={13} className="text-amber-500/60 mb-0.5" />
+                        <span className="text-[9px] font-bold text-amber-700/70 mb-0.5">🥇 1º</span>
+                        <div className="w-11 h-11 rounded-full border-2 border-dashed border-amber-400/70 flex items-center justify-center text-amber-600 text-xs mb-1 bg-amber-50/30">?</div>
+                        <div className="text-[9px] text-slate-400">Aguardando</div>
                       </div>
+                    )}
+                    <div className="w-full h-20 rounded-t-xl bg-gradient-to-t from-amber-400 via-amber-300 to-amber-100 border-t-2 border-x border-amber-300 shadow-2xs flex flex-col items-center justify-center">
+                      <span className="text-2xl font-black text-amber-800/40 select-none">1</span>
+                      <span className="text-[8px] font-black text-amber-900 uppercase">Ouro</span>
                     </div>
+                  </div>
 
-                    {/* 3º LUGAR */}
-                    <div className="flex flex-col items-center min-w-0">
+                  {/* 3º LUGAR (BRONZE) */}
+                  <div className="flex flex-col items-center min-w-0">
+                    {clientBronze ? (
                       <div className="flex flex-col items-center w-full mb-1">
                         <span className="text-[9px] font-bold text-amber-800 mb-0.5">🥉 3º</span>
                         <div className="w-9 h-9 rounded-full ring-2 ring-amber-700/40 ring-offset-1 overflow-hidden shadow-2xs mb-1">
-                          <Avatar name={top3[2].name} src={top3[2].photo} size="sm" />
+                          <Avatar name={clientBronze.name} src={clientBronze.photo} size="sm" />
                         </div>
-                        <div className="font-bold text-slate-800 text-[10px] truncate max-w-full text-center px-0.5">{top3[2].name}</div>
-                        <div className="text-[11px] font-black text-amber-900 mt-0.5">{top3[2].score} <span className="text-[8px] font-normal text-slate-400">pts</span></div>
+                        <div className="font-bold text-slate-800 text-[10px] truncate max-w-full text-center px-0.5">{clientBronze.name}</div>
+                        <div className="text-[11px] font-black text-amber-900 mt-0.5">{clientBronze.score} <span className="text-[8px] font-normal text-slate-400">pts</span></div>
                       </div>
-                      <div className="w-full h-10 rounded-t-lg bg-gradient-to-t from-amber-100 via-amber-50 to-white border-t-2 border-x border-amber-200 flex flex-col items-center justify-center">
-                        <span className="text-lg font-black text-amber-800/30 select-none">3</span>
-                        <span className="text-[8px] font-bold text-amber-800/70 uppercase">Bronze</span>
+                    ) : (
+                      <div className="flex flex-col items-center w-full mb-1 opacity-50">
+                        <span className="text-[9px] font-bold text-amber-800 mb-0.5">🥉 3º</span>
+                        <div className="w-8 h-8 rounded-full border-2 border-dashed border-amber-300 flex items-center justify-center text-amber-700 text-xs mb-1">?</div>
+                        <div className="text-[9px] text-slate-400">Aguardando</div>
                       </div>
+                    )}
+                    <div className="w-full h-10 rounded-t-lg bg-gradient-to-t from-amber-100 via-amber-50 to-white border-t-2 border-x border-amber-200 flex flex-col items-center justify-center">
+                      <span className="text-lg font-black text-amber-800/30 select-none">3</span>
+                      <span className="text-[8px] font-bold text-amber-800/70 uppercase">Bronze</span>
                     </div>
                   </div>
-                  <div className="h-1 bg-slate-200 rounded-b-md" />
                 </div>
-              ) : <div className="rounded-lg bg-slate-50 p-5 text-center text-xs text-slate-500">O pódio aparecerá quando este cliente tiver ao menos três colaboradores pontuados.</div>}
+                <div className="h-1 bg-slate-200 rounded-b-md" />
+              </div>
             </div>
 
             {/* Desempenho do Cliente */}

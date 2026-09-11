@@ -115,7 +115,27 @@ export default function RankingGeral() {
   const clientPosts = data.posts.filter(post => !clientId || post.clientIds?.includes(clientId));
   const roles = [...new Set(ranking.map(item => item.role).filter(Boolean))];
   const evaluated = ranking.filter(item => Number(item.evaluations || 0) > 0);
-  const podium = evaluated.slice(0, 3);
+
+  // ── Pódio por Classificação: O melhor pontuador de cada categoria (Ouro, Prata e Bronze) ──
+  const isGold = (item: any) => ['ouro', 'diamante'].includes(String(item.badge || '').toLowerCase());
+  const isSilver = (item: any) => String(item.badge || '').toLowerCase() === 'prata';
+  const isBronze = (item: any) => String(item.badge || '').toLowerCase() === 'bronze';
+
+  const goldCandidates = evaluated.filter(isGold);
+  const silverCandidates = evaluated.filter(isSilver);
+  const bronzeCandidates = evaluated.filter(isBronze);
+
+  const topGold = goldCandidates.length > 0
+    ? [...goldCandidates].sort((a, b) => Number(b.score || 0) - Number(a.score || 0))[0]
+    : null;
+  const topSilver = silverCandidates.length > 0
+    ? [...silverCandidates].sort((a, b) => Number(b.score || 0) - Number(a.score || 0))[0]
+    : null;
+  const topBronze = bronzeCandidates.length > 0
+    ? [...bronzeCandidates].sort((a, b) => Number(b.score || 0) - Number(a.score || 0))[0]
+    : null;
+
+  const podiumCount = [topGold, topSilver, topBronze].filter(Boolean).length;
   const clearFilters = () => { setSearch(''); setClientId(''); setPostId(''); setRole(''); setBadge(''); setSeasonId(season?.id || ''); };
   const activeFilterCount = [search, clientId, postId, role, badge, (seasonId && seasonId !== season?.id) ? seasonId : ''].filter(Boolean).length;
 
@@ -129,29 +149,29 @@ export default function RankingGeral() {
 
       {/* ── Pódio Flutuante da Temporada (Fundo Transparente com Confetes) ── */}
       <section className="bg-transparent my-3 sm:my-5 relative overflow-hidden" aria-label="Pódio da temporada">
-        {podium.length > 0 && <ConfettiEffect />}
+        {podiumCount > 0 && <ConfettiEffect />}
         <div className="pt-2 pb-2 px-1 sm:px-4 bg-transparent relative z-10">
           {/* ── Visual Pedestal Podium Grid (Sempre 3 colunas, inclusive no mobile) ── */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4 items-end max-w-xl mx-auto">
             
             {/* ── 2º LUGAR (ESQUERDA - PRATA) ── */}
             <div className="flex flex-col items-center min-w-0">
-              {podium[1] ? (
+              {topSilver ? (
                 <div className="flex flex-col items-center w-full mb-2">
                   <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs mb-1.5">
                     🥈 2º
                   </span>
                   <div className="relative mb-1">
                     <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full ring-3 ring-slate-300 ring-offset-2 overflow-hidden shadow-sm flex items-center justify-center bg-white">
-                      <Avatar name={podium[1].name} src={podium[1].photo} size="md" />
+                      <Avatar name={topSilver.name} src={topSilver.photo} size="md" />
                     </div>
                   </div>
                   <div className="w-full text-center px-0.5">
-                    <div className="font-bold text-[11px] sm:text-sm text-slate-800 truncate" title={podium[1].name}>{podium[1].name}</div>
-                    <div className="text-[9px] sm:text-xs text-slate-400 truncate" title={`${podium[1].client} · ${podium[1].post}`}>{podium[1].client}</div>
+                    <div className="font-bold text-[11px] sm:text-sm text-slate-800 truncate" title={topSilver.name}>{topSilver.name}</div>
+                    <div className="text-[9px] sm:text-xs text-slate-400 truncate" title={`${topSilver.client} · ${topSilver.post}`}>{topSilver.client}</div>
                   </div>
                   <div className="mt-0.5 font-black text-xs sm:text-sm text-slate-700">
-                    {podium[1].score} <span className="text-[9px] font-semibold text-slate-400">pts</span>
+                    {topSilver.score} <span className="text-[9px] font-semibold text-slate-400">pts</span>
                   </div>
                 </div>
               ) : (
@@ -171,7 +191,7 @@ export default function RankingGeral() {
 
             {/* ── 1º LUGAR (CENTRO - OURO / MAIS ALTO) ── */}
             <div className="flex flex-col items-center min-w-0 z-10">
-              {podium[0] ? (
+              {topGold ? (
                 <div className="flex flex-col items-center w-full mb-2">
                   <Crown size={22} className="text-amber-500 fill-amber-400 drop-shadow-sm mb-0.5" />
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-xs mb-1.5">
@@ -179,18 +199,18 @@ export default function RankingGeral() {
                   </span>
                   <div className="relative mb-1">
                     <div className="w-15 h-15 sm:w-20 sm:h-20 rounded-full ring-4 ring-amber-400 ring-offset-2 overflow-hidden shadow-md flex items-center justify-center bg-white">
-                      <Avatar name={podium[0].name} src={podium[0].photo} size="lg" />
+                      <Avatar name={topGold.name} src={topGold.photo} size="lg" />
                     </div>
                     <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider shadow-xs whitespace-nowrap">
                       LÍDER
                     </span>
                   </div>
                   <div className="w-full text-center px-0.5">
-                    <div className="font-extrabold text-xs sm:text-base text-slate-900 truncate" title={podium[0].name}>{podium[0].name}</div>
-                    <div className="text-[9px] sm:text-xs text-amber-700/80 font-semibold truncate" title={`${podium[0].client} · ${podium[0].post}`}>{podium[0].client}</div>
+                    <div className="font-extrabold text-xs sm:text-base text-slate-900 truncate" title={topGold.name}>{topGold.name}</div>
+                    <div className="text-[9px] sm:text-xs text-amber-700/80 font-semibold truncate" title={`${topGold.client} · ${topGold.post}`}>{topGold.client}</div>
                   </div>
                   <div className="mt-0.5 font-black text-sm sm:text-base text-amber-600">
-                    {podium[0].score} <span className="text-[10px] font-bold text-amber-500">pts</span>
+                    {topGold.score} <span className="text-[10px] font-bold text-amber-500">pts</span>
                   </div>
                 </div>
               ) : (
@@ -213,22 +233,22 @@ export default function RankingGeral() {
 
             {/* ── 3º LUGAR (DIREITA - BRONZE) ── */}
             <div className="flex flex-col items-center min-w-0">
-              {podium[2] ? (
+              {topBronze ? (
                 <div className="flex flex-col items-center w-full mb-2">
                   <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 shadow-2xs mb-1.5">
                     🥉 3º
                   </span>
                   <div className="relative mb-1">
                     <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-full ring-3 ring-amber-700/40 ring-offset-2 overflow-hidden shadow-sm flex items-center justify-center bg-white">
-                      <Avatar name={podium[2].name} src={podium[2].photo} size="md" />
+                      <Avatar name={topBronze.name} src={topBronze.photo} size="md" />
                     </div>
                   </div>
                   <div className="w-full text-center px-0.5">
-                    <div className="font-bold text-[11px] sm:text-sm text-slate-800 truncate" title={podium[2].name}>{podium[2].name}</div>
-                    <div className="text-[9px] sm:text-xs text-slate-400 truncate" title={`${podium[2].client} · ${podium[2].post}`}>{podium[2].client}</div>
+                    <div className="font-bold text-[11px] sm:text-sm text-slate-800 truncate" title={topBronze.name}>{topBronze.name}</div>
+                    <div className="text-[9px] sm:text-xs text-slate-400 truncate" title={`${topBronze.client} · ${topBronze.post}`}>{topBronze.client}</div>
                   </div>
                   <div className="mt-0.5 font-black text-xs sm:text-sm text-amber-900">
-                    {podium[2].score} <span className="text-[9px] font-semibold text-slate-400">pts</span>
+                    {topBronze.score} <span className="text-[9px] font-semibold text-slate-400">pts</span>
                   </div>
                 </div>
               ) : (
