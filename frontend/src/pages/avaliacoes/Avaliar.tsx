@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import {
   ChevronRight, ChevronLeft, ChevronDown, Send, MapPin,
   UserCheck, CheckCircle2, Calendar, Star, FileText,
-  Building2, RotateCcw, Pencil, Check, X, Briefcase, Clock
+  Building2, RotateCcw, Check, X, Briefcase, Clock
 } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { api } from '../../app/state';
@@ -290,28 +290,34 @@ export default function Avaliar() {
                 className="w-full text-left group"
                 aria-expanded={expandedInfo}
               >
-                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                  <h2 className="text-sm sm:text-lg font-extrabold text-slate-800 leading-tight truncate">
+                {/* Row 1: Name (truncates) + Counter fixed right */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <h2 className="text-sm sm:text-base font-extrabold text-slate-800 leading-tight truncate min-w-0 flex-1">
                     {employee?.name}
                   </h2>
-                  <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/60">
-                    {employee?.role || 'Colaborador'}
-                  </span>
                   <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 flex-shrink-0" title={`Colaborador ${currentIdx + 1} de ${total}`}>
                     {currentIdx + 1}/{total}
                   </span>
                 </div>
 
+                {/* Row 2: Role badge */}
+                <div className="mt-0.5">
+                  <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/60">
+                    {employee?.role || 'Colaborador'}
+                  </span>
+                </div>
+
+                {/* Row 3: Client / Post / Ver mais */}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500 mt-1 font-medium">
-                  <div className="flex items-center gap-1 truncate" title={`Cliente: ${employee?.client}`}>
+                  <div className="flex items-center gap-1 min-w-0" title={`Cliente: ${employee?.client}`}>
                     <Building2 size={12} className="text-slate-400 flex-shrink-0" />
                     <span className="truncate">{employee?.client}</span>
                   </div>
-                  <div className="flex items-center gap-1 truncate" title={`Posto: ${employee?.post}`}>
+                  <div className="flex items-center gap-1 min-w-0" title={`Posto: ${employee?.post}`}>
                     <MapPin size={12} className="text-slate-400 flex-shrink-0" />
                     <span className="truncate">{employee?.post}</span>
                   </div>
-                  <span className="ml-auto flex items-center gap-0.5 text-[10px] text-blue-500 font-semibold group-hover:text-blue-700 transition-colors">
+                  <span className="ml-auto flex items-center gap-0.5 text-[10px] text-blue-500 font-semibold group-hover:text-blue-700 transition-colors flex-shrink-0">
                     {expandedInfo ? 'Recolher' : 'Ver mais'}
                     <ChevronDown size={11} className={`transition-transform duration-200 ${expandedInfo ? 'rotate-180' : ''}`} />
                   </span>
@@ -660,80 +666,6 @@ export default function Avaliar() {
           )}
         </div>
 
-        {/* ── Colaboradores já avaliados (Permite Reavaliar) ── */}
-        {data?.evaluations && cycle?.id && (
-          (() => {
-            const completedInCycle = data.evaluations
-              .filter((e: any) => e.cycleId === cycle.id && e.evaluatorId === data.user?.id && e.status === 'enviada')
-              .map((e: any) => ({
-                id: e.id,
-                participantId: e.participantId,
-                employee: e.snapshot?.name || '—',
-                photo: e.snapshot?.photo || '',
-                role: e.snapshot?.role || '—',
-                score: e.score || 0,
-              }));
-            if (!completedInCycle.length) return null;
-            return (
-              <div className="w-full lg:w-[280px] xl:w-[300px] flex-shrink-0">
-                <details className="bg-white rounded-2xl p-3.5 shadow-xs border border-slate-200/80 group" open>
-                  <summary className="flex items-center justify-between cursor-pointer font-bold text-slate-700 text-xs uppercase tracking-wider mb-1 lg:mb-2.5">
-                    <span>Já avaliados ({completedInCycle.length})</span>
-                    <ChevronDown size={14} className="text-slate-400 group-open:rotate-180 transition-transform" />
-                  </summary>
-                  <div className="space-y-1.5 pt-1 max-h-[360px] overflow-y-auto pr-1">
-                    {completedInCycle.map((ev: any) => (
-                      <div key={ev.id} className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Avatar name={ev.employee} src={ev.photo} size="sm" />
-                          <div className="min-w-0">
-                            <div className="font-semibold text-slate-800 truncate">{ev.employee}</div>
-                            <div className="text-[10px] text-slate-400 truncate">{ev.role} · {ev.score} pts</div>
-                          </div>
-                        </div>
-                        {(() => {
-                          const activeSeason = data.seasons?.find((s: any) => s.status === 'ativa');
-                          const allowReevaluate =
-                            data.role.permissions.includes('evaluations') ||
-                            (activeSeason?.rules?.allowReevaluate !== false &&
-                              data.settings?.rules?.allowReevaluate !== false);
-                          if (!allowReevaluate) {
-                            return (
-                              <span className="text-[10px] text-emerald-600 bg-emerald-50 font-semibold px-2 py-0.5 rounded-full flex-shrink-0">
-                                Concluída
-                              </span>
-                            );
-                          }
-                          return (
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                const confirmed = window.confirm(`Deseja reabrir a avaliação de ${ev.employee} para alterar nota, comentários ou elogio?`);
-                                if (!confirmed) return;
-                                try {
-                                  await api(`/evaluations/${ev.id}/reopen`, { reason: 'Reavaliação solicitada pelo usuário' });
-                                  await refresh();
-                                  notify('Avaliação reaberta com sucesso! Carregando dados...');
-                                } catch (err: any) {
-                                  notify(err?.message || 'Erro ao reabrir avaliação.');
-                                }
-                              }}
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors cursor-pointer flex-shrink-0"
-                              title="Reabrir e alterar nota desta avaliação"
-                            >
-                              <Pencil size={11} />
-                              <span>Reavaliar</span>
-                            </button>
-                          );
-                        })()}
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              </div>
-            );
-          })()
-        )}
       </div>
 
       {/* ── Modal de visualização ampliada da foto do colaborador ── */}
