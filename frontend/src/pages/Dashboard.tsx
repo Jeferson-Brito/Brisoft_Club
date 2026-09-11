@@ -395,8 +395,8 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-          <Link to="/avaliacoes/pendentes" className="mt-4 text-sm text-blue-600 font-semibold flex items-center gap-1 hover:gap-2 transition-all">
-            Ver todas as pendências <ChevronRight size={14} />
+          <Link to="/avaliacoes/avaliar" className="mt-4 text-sm text-blue-600 font-semibold flex items-center gap-1 hover:gap-2 transition-all">
+            Ir para avaliações <ChevronRight size={14} />
           </Link>
         </Card>
       </div>

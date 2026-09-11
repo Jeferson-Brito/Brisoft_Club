@@ -31,7 +31,6 @@ const NAV: NavItem[] = [
     permission: 'evaluate',
     children: [
       { label: 'Avaliar', path: '/avaliacoes/avaliar', permission: 'evaluate' },
-      { label: 'Pendentes', path: '/avaliacoes/pendentes', permission: 'evaluate' },
       { label: 'Concluídas', path: '/avaliacoes/concluidas', permission: ['evaluate', 'evaluations'] },
       { label: 'Histórico', path: '/avaliacoes/historico', permission: ['evaluate', 'evaluations'] },
       { label: 'Não avaliados', path: '/avaliacoes/nao-avaliados', permission: 'evaluations' },

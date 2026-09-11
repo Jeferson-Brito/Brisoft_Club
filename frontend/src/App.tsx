@@ -9,7 +9,7 @@ import {
   NavLink,
   useLocation,
 } from "react-router-dom";
-import { Menu, Bell, LogOut, LayoutDashboard, Star, Clock, Trophy, CheckCircle2, ChevronDown, KeyRound } from "lucide-react";
+import { Menu, Bell, LogOut, LayoutDashboard, Star, Trophy, CheckCircle2, ChevronDown, KeyRound } from "lucide-react";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Avatar } from "./components/ui/Avatar";
 import { api, DataProvider, useData } from "./app/state";
@@ -18,7 +18,6 @@ import { Catalog } from "./app/Catalogs";
 import { Seasons } from "./app/Seasons";
 import { Settings } from "./app/Settings";
 import Avaliar from "./pages/avaliacoes/Avaliar";
-import Pendentes from "./pages/avaliacoes/Pendentes";
 import Concluidas from "./pages/avaliacoes/Concluidas";
 import Historico from "./pages/avaliacoes/Historico";
 import NaoAvaliados from "./pages/avaliacoes/NaoAvaliados";
@@ -161,10 +160,10 @@ function Layout({ logout }: { logout: () => void }) {
                     <h3>Seu acompanhamento</h3>
                     <p>{pending} colaboradores disponíveis para avaliação.</p>
                     <Link
-                      to="/avaliacoes/pendentes"
+                      to="/avaliacoes/avaliar"
                       onClick={() => setNotifications(false)}
                     >
-                      Ver pendências →
+                      Avaliar agora →
                     </Link>
                   </div>
                 )}
@@ -254,16 +253,6 @@ function Layout({ logout }: { logout: () => void }) {
                   {pending > 9 ? '9+' : pending}
                 </span>
               )}
-            </NavLink>
-          )}
-
-          {evaluator && (
-            <NavLink
-              to="/avaliacoes/pendentes"
-              className={({ isActive }) => `flex flex-col items-center justify-center py-1 px-3 rounded-lg transition-colors ${isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
-            >
-              <Clock size={19} />
-              <span className="text-[10px] mt-0.5">Pendentes</span>
             </NavLink>
           )}
 
@@ -383,7 +372,7 @@ export default function App() {
             />
             <Route
               path="avaliacoes/pendentes"
-              element={guard("evaluate", <Pendentes />)}
+              element={<Navigate to="/avaliacoes/avaliar" replace />}
             />
             <Route
               path="avaliacoes/concluidas"

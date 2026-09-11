@@ -91,8 +91,8 @@ export function Dashboard() {
             {evaluated.size} avaliados ·{" "}
             {Math.max(0, participants.length - evaluated.size)} pendentes
           </p>
-          <Link className="text-button" to="/avaliacoes/pendentes">
-            Ver pendências →
+          <Link className="text-button" to="/avaliacoes/avaliar">
+            Avaliar agora →
           </Link>
         </Panel>
         <Panel title="Avaliações por cliente">
