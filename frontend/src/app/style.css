@@ -1586,7 +1586,7 @@ tbody tr:hover {
 .ranking-header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
 .ranking-season { display: grid; gap: 4px; min-width: 210px; color: var(--muted); font-size: 12px; font-weight: 700; }
 .ranking-season select { min-height: 38px; border: 1px solid var(--line); border-radius: 9px; background: #fff; padding: 0 11px; color: var(--navy); font-weight: 700; }
-.ranking-overview { display: grid; grid-template-columns: repeat(3, minmax(130px, 1fr)) minmax(220px, 1.4fr); gap: 10px; }
+.ranking-overview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .ranking-overview > div { display: flex; align-items: center; gap: 10px; min-height: 66px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--blue); }
 .ranking-overview span, .ranking-person span { display: grid; min-width: 0; }
 .ranking-overview strong { color: var(--navy); font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1649,7 +1649,7 @@ tbody tr:hover {
 .ranking-empty { padding: 35px !important; text-align: center; color: var(--muted) !important; }
 .ranking-table-card footer { padding: 10px 14px; border-top: 1px solid var(--line); }
 @media (max-width: 1000px) { .ranking-overview { grid-template-columns: repeat(2, 1fr); }.ranking-filters { grid-template-columns: repeat(2, 1fr); }.ranking-search { grid-column: 1 / -1; } }
-@media (max-width: 640px) { .ranking-header { align-items: stretch; flex-direction: column; }.ranking-season { min-width: 0; }.ranking-overview { grid-template-columns: 1fr 1fr; }.ranking-leader { grid-column: 1 / -1; }.ranking-podium > header { align-items: flex-start; flex-direction: column; }.ranking-filters { grid-template-columns: 1fr; }.ranking-search { grid-column: auto; }.my-ranking-score { align-self: start; }.ranking-table-scroll { max-height: 62vh; } }
+@media (max-width: 640px) { .ranking-header { align-items: stretch; flex-direction: column; }.ranking-season { min-width: 0; }.ranking-overview { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }.ranking-overview > div { padding: 8px 6px; min-height: 56px; gap: 6px; flex-direction: column; align-items: flex-start; justify-content: center; }.ranking-overview strong { font-size: 14px; }.ranking-overview small { font-size: 9px; }.ranking-filters { grid-template-columns: 1fr; }.ranking-search { grid-column: auto; }.my-ranking-score { align-self: start; }.ranking-table-scroll { max-height: 62vh; } }
 
 /* ── Mobile Navigation & Touch Optimizations ── */
 .mobile-bottom-nav {

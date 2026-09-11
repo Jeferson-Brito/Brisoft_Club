@@ -50,23 +50,14 @@ export default function RankingGeral() {
         <div><Users size={19} /><span><strong>{ranking.length}</strong><small>participantes</small></span></div>
         <div><Trophy size={19} /><span><strong>{evaluated.length}</strong><small>avaliados</small></span></div>
         <div><Medal size={19} /><span><strong>{average}</strong><small>média de pontos</small></span></div>
-        <div className="ranking-leader"><Avatar name={ranking[0]?.name || '—'} src={ranking[0]?.photo} size="sm" /><span><strong>{ranking[0]?.name || 'Sem resultado'}</strong><small>{ranking[0] ? `1º lugar · ${ranking[0].score} pontos` : 'Aguardando avaliações'}</small></span></div>
       </section>
 
-      {/* ── Pódio Real da Temporada ── */}
-      <section className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden mb-4" aria-label="Pódio da temporada">
-        <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/60">
-          <div className="flex items-center gap-2 text-amber-500 font-bold text-sm">
-            <Trophy size={18} className="text-amber-500" />
-            <strong className="text-slate-800 text-sm sm:text-base">Pódio da temporada</strong>
-          </div>
-          <span className="text-xs text-slate-500 hidden sm:inline">Os colaboradores com maior pontuação</span>
-        </header>
-
+      {/* ── Pódio Flutuante da Temporada (Fundo Transparente) ── */}
+      <section className="bg-transparent my-4 sm:my-6" aria-label="Pódio da temporada">
         {podium.length > 0 ? (
-          <div className="pt-6 pb-3 px-2 sm:px-6 bg-gradient-to-b from-amber-50/20 via-white to-slate-50/70">
+          <div className="pt-2 pb-2 px-1 sm:px-4 bg-transparent">
             {/* ── Visual Pedestal Podium Grid (Sempre 3 colunas, inclusive no mobile) ── */}
-            <div className="grid grid-cols-3 gap-1.5 sm:gap-4 items-end max-w-xl mx-auto">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 items-end max-w-xl mx-auto">
               
               {/* ── 2º LUGAR (ESQUERDA - PRATA) ── */}
               <div className="flex flex-col items-center min-w-0">
@@ -96,8 +87,9 @@ export default function RankingGeral() {
                   </div>
                 )}
                 {/* Degrau 2 */}
-                <div className="w-full h-20 sm:h-28 rounded-t-xl bg-gradient-to-t from-slate-300 via-slate-200 to-slate-100 border-t-2 border-x border-slate-300 shadow-xs flex flex-col items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-x-0 top-0 h-1 bg-white/60" />
+                {/* Degrau 2 (Flutuante) */}
+                <div className="w-full h-20 sm:h-28 rounded-2xl bg-gradient-to-t from-slate-300 via-slate-200 to-slate-100 border border-slate-300/80 shadow-[0_8px_20px_rgba(100,116,139,0.22)] flex flex-col items-center justify-center relative overflow-hidden transition-transform hover:-translate-y-1">
+                  <div className="absolute inset-x-0 top-0 h-1 bg-white/70" />
                   <span className="text-3xl sm:text-4xl font-black text-slate-500/40 select-none">2</span>
                   <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-600/80">Prata</span>
                 </div>
@@ -128,9 +120,9 @@ export default function RankingGeral() {
                     </div>
                   </div>
                 ) : null}
-                {/* Degrau 1 (Mais Alto) */}
-                <div className="w-full h-30 sm:h-40 rounded-t-2xl bg-gradient-to-t from-amber-400 via-amber-300 to-amber-200 border-t-4 border-x-2 border-amber-300 shadow-md flex flex-col items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-x-0 top-0 h-1.5 bg-white/70" />
+                {/* Degrau 1 (Mais Alto / Flutuante) */}
+                <div className="w-full h-30 sm:h-40 rounded-2xl bg-gradient-to-t from-amber-400 via-amber-300 to-amber-200 border-2 border-amber-300 shadow-[0_12px_28px_rgba(245,158,11,0.32)] flex flex-col items-center justify-center relative overflow-hidden transition-transform hover:-translate-y-1">
+                  <div className="absolute inset-x-0 top-0 h-1.5 bg-white/80" />
                   <span className="text-4xl sm:text-6xl font-black text-amber-800/40 select-none">1</span>
                   <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider text-amber-950 flex items-center gap-1">
                     <Trophy size={11} className="text-amber-800" /> Campeão
@@ -165,18 +157,15 @@ export default function RankingGeral() {
                     <span className="text-[9px] text-slate-400">Aguardando</span>
                   </div>
                 )}
-                {/* Degrau 3 (Mais Baixo) */}
-                <div className="w-full h-15 sm:h-22 rounded-t-xl bg-gradient-to-t from-amber-700/30 via-amber-600/20 to-amber-100 border-t-2 border-x border-amber-600/30 shadow-xs flex flex-col items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-x-0 top-0 h-1 bg-white/50" />
+                {/* Degrau 3 (Flutuante) */}
+                <div className="w-full h-15 sm:h-22 rounded-2xl bg-gradient-to-t from-amber-700/30 via-amber-600/20 to-amber-100 border border-amber-600/30 shadow-[0_8px_20px_rgba(180,83,9,0.18)] flex flex-col items-center justify-center relative overflow-hidden transition-transform hover:-translate-y-1">
+                  <div className="absolute inset-x-0 top-0 h-1 bg-white/60" />
                   <span className="text-2xl sm:text-3xl font-black text-amber-900/30 select-none">3</span>
                   <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-900/70">Bronze</span>
                 </div>
               </div>
 
             </div>
-
-            {/* Linha base de apoio do pódio */}
-            <div className="max-w-xl mx-auto h-2 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 rounded-b-xl border-t border-slate-300/70" />
           </div>
         ) : (
           <div className="p-8 text-center text-xs text-slate-500">
