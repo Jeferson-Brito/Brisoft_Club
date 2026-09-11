@@ -98,6 +98,7 @@ export const rulesSchema = z
     allowSkip: z.boolean(),
     allowUnable: z.boolean(),
     allowLate: z.boolean(),
+    allowReevaluate: z.boolean().default(true),
     evaluatorWeights: z.record(z.string(), z.number().positive().max(100)),
     tieBreak: z
       .array(
@@ -173,6 +174,7 @@ export const defaultRules = rulesSchema.parse({
   allowSkip: true,
   allowUnable: true,
   allowLate: false,
+  allowReevaluate: true,
   evaluatorWeights: {},
   tieBreak: ["technical", "posture", "communication", "compliments", "oldest"],
   hideBeforePublication: true,

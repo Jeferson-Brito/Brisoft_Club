@@ -724,25 +724,41 @@ export default function Avaliar() {
                             <div className="text-[10px] text-slate-400 truncate">{ev.role} · {ev.score} pts</div>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const confirmed = window.confirm(`Deseja reabrir a avaliação de ${ev.employee} para alterar nota, comentários ou elogio?`);
-                            if (!confirmed) return;
-                            try {
-                              await api(`/evaluations/${ev.id}/reopen`, { reason: 'Reavaliação solicitada pelo usuário' });
-                              await refresh();
-                              notify('Avaliação reaberta com sucesso! Carregando dados...');
-                            } catch (err: any) {
-                              notify(err?.message || 'Erro ao reabrir avaliação.');
-                            }
-                          }}
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors cursor-pointer flex-shrink-0"
-                          title="Reabrir e alterar nota desta avaliação"
-                        >
-                          <Pencil size={11} />
-                          <span>Reavaliar</span>
-                        </button>
+                        {(() => {
+                          const activeSeason = data.seasons?.find((s: any) => s.status === 'ativa');
+                          const allowReevaluate =
+                            data.role.permissions.includes('evaluations') ||
+                            (activeSeason?.rules?.allowReevaluate !== false &&
+                              data.settings?.rules?.allowReevaluate !== false);
+                          if (!allowReevaluate) {
+                            return (
+                              <span className="text-[10px] text-emerald-600 bg-emerald-50 font-semibold px-2 py-0.5 rounded-full flex-shrink-0">
+                                Concluída
+                              </span>
+                            );
+                          }
+                          return (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const confirmed = window.confirm(`Deseja reabrir a avaliação de ${ev.employee} para alterar nota, comentários ou elogio?`);
+                                if (!confirmed) return;
+                                try {
+                                  await api(`/evaluations/${ev.id}/reopen`, { reason: 'Reavaliação solicitada pelo usuário' });
+                                  await refresh();
+                                  notify('Avaliação reaberta com sucesso! Carregando dados...');
+                                } catch (err: any) {
+                                  notify(err?.message || 'Erro ao reabrir avaliação.');
+                                }
+                              }}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+                              title="Reabrir e alterar nota desta avaliação"
+                            >
+                              <Pencil size={11} />
+                              <span>Reavaliar</span>
+                            </button>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>

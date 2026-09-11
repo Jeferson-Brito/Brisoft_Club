@@ -516,27 +516,39 @@ export default function Historico() {
                   >
                     ← Voltar para a lista
                   </button>
-                  {(data.role.permissions.includes('evaluations') || (data.role.permissions.includes('evaluate') && selectedEval.evaluatorId === data.user.id)) && selectedEval.status !== 'rascunho' && selectedEvalCycle?.status === 'ativo' && (
-                    <button
-                      onClick={async () => {
-                        const reason = window.prompt('Informe o motivo da alteração de notas ou comentários:', 'Reavaliação solicitada pelo avaliador');
-                        if (reason === null) return;
-                        try {
-                          await api(`/evaluations/${selectedEval.id}/reopen`, { reason: reason || 'Reavaliação solicitada' });
-                          await refresh();
-                          closeDetails();
-                          notify('Avaliação reaberta com sucesso! Abrindo tela para reavaliação...');
-                          navigate(`/avaliacoes/avaliar?colaborador=${selectedEval.participantId}`);
-                        } catch (error) {
-                          notify((error as Error).message);
-                        }
-                      }}
-                      className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors shadow-2xs cursor-pointer"
-                    >
-                      <Pencil size={11} />
-                      <span>Reabrir e Reavaliar</span>
-                    </button>
-                  )}
+                  {(() => {
+                    const activeSeason = data.seasons?.find((s: any) => s.status === 'ativa');
+                    const allowReevaluate =
+                      activeSeason?.rules?.allowReevaluate !== false &&
+                      data.settings?.rules?.allowReevaluate !== false;
+                    const canReopenThis =
+                      (data.role.permissions.includes('evaluations') ||
+                        (data.role.permissions.includes('evaluate') && allowReevaluate && selectedEval.evaluatorId === data.user.id)) &&
+                      selectedEval.status !== 'rascunho' &&
+                      selectedEvalCycle?.status === 'ativo';
+                    if (!canReopenThis) return null;
+                    return (
+                      <button
+                        onClick={async () => {
+                          const reason = window.prompt('Informe o motivo da alteração de notas ou comentários:', 'Reavaliação solicitada pelo avaliador');
+                          if (reason === null) return;
+                          try {
+                            await api(`/evaluations/${selectedEval.id}/reopen`, { reason: reason || 'Reavaliação solicitada' });
+                            await refresh();
+                            closeDetails();
+                            notify('Avaliação reaberta com sucesso! Abrindo tela para reavaliação...');
+                            navigate(`/avaliacoes/avaliar?colaborador=${selectedEval.participantId}`);
+                          } catch (error) {
+                            notify((error as Error).message);
+                          }
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors shadow-2xs cursor-pointer"
+                      >
+                        <Pencil size={11} />
+                        <span>Reabrir e Reavaliar</span>
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
             )}

@@ -22,10 +22,19 @@ export default function Concluidas() {
   const [selectedRows, setSelectedRows] = useState<Array<string | number>>([]);
 
   const canReopen = (row: any) => {
+    const isManager = data.role.permissions.includes('evaluations');
+    const activeSeason = data.seasons?.find((s: any) => s.status === 'ativa');
+    const allowReevaluate =
+      activeSeason?.rules?.allowReevaluate !== false &&
+      data.settings?.rules?.allowReevaluate !== false;
+    const isOwnerEvaluator =
+      data.role.permissions.includes('evaluate') &&
+      row.evaluatorId === data.user.id &&
+      allowReevaluate;
     return (
       cycle?.status === 'ativo' &&
       row.status !== 'rascunho' &&
-      (data.role.permissions.includes('evaluations') || (data.role.permissions.includes('evaluate') && row.evaluatorId === data.user.id))
+      (isManager || isOwnerEvaluator)
     );
   };
 

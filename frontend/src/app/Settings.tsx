@@ -366,6 +366,10 @@ export function Settings() {
               {[
                 ["complimentEnabled", "Permitir elogios"],
                 ["complimentApproval", "Exigir aprovação de elogios"],
+                [
+                  "allowReevaluate",
+                  "Permitir que avaliações já avaliadas possam ser reavaliadas por quem avaliou",
+                ],
                 ["allowSkip", "Permitir pular colaborador"],
                 [
                   "allowUnable",
@@ -391,7 +395,7 @@ export function Settings() {
                 <label key={key}>
                   <input
                     type="checkbox"
-                    checked={rules[key]}
+                    checked={key === "allowReevaluate" ? rules[key] !== false : !!rules[key]}
                     onChange={(e) => change(key, e.target.checked)}
                   />
                   {label}

@@ -1631,7 +1631,7 @@ export function createApp(store: Store) {
       await store.transaction(async () => {
         const e = await must(db, "evaluations", String(req.params.id));
         assert(
-          canSee(user, role, e.snapshot),
+          e.evaluatorId === user.id || canSee(user, role, e.snapshot),
           "Avaliação fora do seu vínculo",
           403,
         );
@@ -1648,6 +1648,15 @@ export function createApp(store: Store) {
           );
           assert(e.status !== "rascunho", "Avaliação já está em preenchimento");
           if (!role.permissions.includes("evaluations")) {
+            const settings = (await db.all("settings"))[0];
+            const allowReevaluate =
+              season.rules?.allowReevaluate !== false &&
+              settings?.rules?.allowReevaluate !== false;
+            assert(
+              allowReevaluate,
+              "A reavaliação de colaboradores já avaliados está desativada nas configurações",
+              403,
+            );
             assert(
               e.evaluatorId === user.id,
               "Você só pode reabrir sua própria avaliação",
