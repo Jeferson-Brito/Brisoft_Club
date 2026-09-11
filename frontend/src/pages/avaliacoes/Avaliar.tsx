@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import {
   ChevronRight, ChevronLeft, ChevronDown, Send, MapPin,
   UserCheck, CheckCircle2, Calendar, Star, FileText,
-  Building2, RotateCcw, Pencil, Check, X
+  Building2, RotateCcw, Pencil, Check, X, Briefcase, Clock
 } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { api } from '../../app/state';
@@ -32,6 +32,7 @@ export default function Avaliar() {
   // Wizard state: current criterion index (0 to criteria.length - 1) or 'summary'
   const [currentCriterionIdx, setCurrentCriterionIdx] = useState(0);
   const [step, setStep] = useState<'criterion' | 'summary'>('criterion');
+  const [expandedInfo, setExpandedInfo] = useState(false);
   const [hasSavedDraft, setHasSavedDraft] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
 
@@ -55,6 +56,21 @@ export default function Avaliar() {
 
   const employee = toEvaluate[currentIdx];
   const total = toEvaluate.length;
+
+  const tenureLabel = (dateStr: string) => {
+    if (!dateStr) return '—';
+    const start = new Date(dateStr.length === 10 ? dateStr + 'T12:00:00' : dateStr);
+    const now = new Date();
+    const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+    const years = Math.floor(months / 12);
+    const rem = months % 12;
+    if (years === 0) return `${rem} ${rem === 1 ? 'mês' : 'meses'}`;
+    if (rem === 0) return `${years} ${years === 1 ? 'ano' : 'anos'}`;
+    return `${years} ${years === 1 ? 'ano' : 'anos'} e ${rem} ${rem === 1 ? 'mês' : 'meses'}`;
+  };
+
+  const dateLabel = (s: string) =>
+    s ? new Date(s.length === 10 ? s + 'T12:00:00' : s).toLocaleDateString('pt-BR') : '—';
 
   // Key for local storage draft persistence per user and collaborator
   const draftStorageKey = employee && data?.user?.id
@@ -268,34 +284,75 @@ export default function Avaliar() {
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                <h2 className="text-sm sm:text-lg font-extrabold text-slate-800 leading-tight truncate">
-                  {employee?.name}
-                </h2>
-                <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/60">
-                  {employee?.role || 'Colaborador'}
-                </span>
-                <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 flex-shrink-0" title={`Colaborador ${currentIdx + 1} de ${total}`}>
-                  {currentIdx + 1}/{total}
-                </span>
-              </div>
+              <button
+                type="button"
+                onClick={() => setExpandedInfo(prev => !prev)}
+                className="w-full text-left group"
+                aria-expanded={expandedInfo}
+              >
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  <h2 className="text-sm sm:text-lg font-extrabold text-slate-800 leading-tight truncate">
+                    {employee?.name}
+                  </h2>
+                  <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/60">
+                    {employee?.role || 'Colaborador'}
+                  </span>
+                  <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 flex-shrink-0" title={`Colaborador ${currentIdx + 1} de ${total}`}>
+                    {currentIdx + 1}/{total}
+                  </span>
+                </div>
 
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500 mt-1 font-medium">
-                <div className="flex items-center gap-1 truncate" title={`Cliente: ${employee?.client}`}>
-                  <Building2 size={12} className="text-slate-400 flex-shrink-0" />
-                  <span className="truncate">{employee?.client}</span>
-                </div>
-                <div className="flex items-center gap-1 truncate" title={`Posto: ${employee?.post}`}>
-                  <MapPin size={12} className="text-slate-400 flex-shrink-0" />
-                  <span className="truncate">{employee?.post}</span>
-                </div>
-                {employee?.supervisor && employee?.supervisor !== '—' && (
-                  <div className="hidden sm:flex items-center gap-1 truncate" title={`Supervisor: ${employee?.supervisor}`}>
-                    <UserCheck size={12} className="text-slate-400 flex-shrink-0" />
-                    <span className="truncate">{employee?.supervisor}</span>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500 mt-1 font-medium">
+                  <div className="flex items-center gap-1 truncate" title={`Cliente: ${employee?.client}`}>
+                    <Building2 size={12} className="text-slate-400 flex-shrink-0" />
+                    <span className="truncate">{employee?.client}</span>
                   </div>
-                )}
-              </div>
+                  <div className="flex items-center gap-1 truncate" title={`Posto: ${employee?.post}`}>
+                    <MapPin size={12} className="text-slate-400 flex-shrink-0" />
+                    <span className="truncate">{employee?.post}</span>
+                  </div>
+                  <span className="ml-auto flex items-center gap-0.5 text-[10px] text-blue-500 font-semibold group-hover:text-blue-700 transition-colors">
+                    {expandedInfo ? 'Recolher' : 'Ver mais'}
+                    <ChevronDown size={11} className={`transition-transform duration-200 ${expandedInfo ? 'rotate-180' : ''}`} />
+                  </span>
+                </div>
+              </button>
+
+              {/* Expandable details panel */}
+              {expandedInfo && (
+                <div className="mt-2 pt-2 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                  {employee?.registration && (
+                    <div>
+                      <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Matrícula</div>
+                      <div className="text-xs font-bold text-slate-700">{employee.registration}</div>
+                    </div>
+                  )}
+                  {employee?.admissionDate && (
+                    <div>
+                      <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide flex items-center gap-0.5"><Calendar size={9} />Admissão</div>
+                      <div className="text-xs font-bold text-slate-700">{dateLabel(employee.admissionDate)}</div>
+                    </div>
+                  )}
+                  {employee?.admissionDate && (
+                    <div>
+                      <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide flex items-center gap-0.5"><Clock size={9} />Tempo de empresa</div>
+                      <div className="text-xs font-bold text-slate-700">{tenureLabel(employee.admissionDate)}</div>
+                    </div>
+                  )}
+                  {employee?.allocationStart && (
+                    <div>
+                      <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide flex items-center gap-0.5"><Briefcase size={9} />No posto desde</div>
+                      <div className="text-xs font-bold text-slate-700">{dateLabel(employee.allocationStart)}</div>
+                    </div>
+                  )}
+                  {employee?.supervisor && employee?.supervisor !== '—' && (
+                    <div>
+                      <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide flex items-center gap-0.5"><UserCheck size={9} />Supervisor</div>
+                      <div className="text-xs font-bold text-slate-700 truncate">{employee.supervisor}</div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

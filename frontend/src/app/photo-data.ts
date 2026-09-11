@@ -175,26 +175,32 @@ export function usePhotoData() {
         };
       });
 
-    const toEvaluate: any[] = pending.map((item) => ({
-      id: item.id,
-      participantId: item.id,
-      cycleId: item.cycleId,
-      name: item.employee,
-      photo: item.photo,
-      role: item.role,
-      client: item.client,
-      post: item.post,
-      registration: item.registration,
-      supervisor:
-        usersById.get(item.snapshot?.supervisorId)?.name || "—",
-      score: 0,
-      badge: null,
-      status: "ativo",
-      evaluations: 0,
-      avgScore: 0,
-      presence: 0,
-      admissionDate: "",
-    }));
+    const toEvaluate: any[] = pending.map((item) => {
+      const emp = data.employees.find((e) => e.id === item.employeeId);
+      return {
+        id: item.id,
+        participantId: item.id,
+        cycleId: item.cycleId,
+        name: item.employee,
+        photo: item.photo,
+        role: item.role,
+        client: item.client,
+        post: item.post,
+        registration: item.registration,
+        supervisor:
+          usersById.get(item.snapshot?.supervisorId)?.name || "—",
+        score: 0,
+        badge: null,
+        status: "ativo",
+        evaluations: 0,
+        avgScore: 0,
+        presence: 0,
+        admissionDate: emp?.admissionDate || "",
+        allocationStart: item.snapshot?.allocationStart || "",
+        gender: emp?.gender || "",
+        cpf: emp?.cpf || "",
+      };
+    });
 
     return {
       ...context,
