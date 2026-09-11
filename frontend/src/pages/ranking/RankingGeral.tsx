@@ -1,9 +1,94 @@
-import { useState } from 'react';
-import { Download, Filter, Medal, Search, Trophy, Users, X, Crown } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Download, Filter, Search, Trophy, X, Crown } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { usePhotoData } from '../../app/photo-data';
 
 const selectCls = 'w-full min-h-9 text-sm font-medium border border-slate-200 rounded-lg px-3 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-blue-200 cursor-pointer';
+
+function ConfettiEffect() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let width = (canvas.width = canvas.offsetWidth || window.innerWidth);
+    let height = (canvas.height = canvas.offsetHeight || 380);
+
+    const colors = ['#f59e0b', '#fbbf24', '#3b82f6', '#10b981', '#ec4899', '#8b5cf6', '#ef4444', '#f1f5f9', '#6366f1'];
+    const count = 65;
+    const pieces = Array.from({ length: count }, () => ({
+      x: Math.random() * width,
+      y: -20 - Math.random() * 120,
+      sizeW: 6 + Math.random() * 6,
+      sizeH: 3 + Math.random() * 5,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      speedY: 1.5 + Math.random() * 2.8,
+      speedX: (Math.random() - 0.5) * 1.8,
+      rotation: Math.random() * 360,
+      rotationSpeed: (Math.random() - 0.5) * 7,
+      wobble: Math.random() * 10,
+      wobbleSpeed: 0.05 + Math.random() * 0.04,
+    }));
+
+    let animId: number;
+    const startTime = performance.now();
+    const duration = 4000; // Animação de 4 segundos
+
+    const render = (time: number) => {
+      const elapsed = time - startTime;
+      if (elapsed > duration) {
+        ctx.clearRect(0, 0, width, height);
+        return;
+      }
+
+      ctx.clearRect(0, 0, width, height);
+      // Fade out suave no último segundo
+      const opacity = elapsed > duration - 1000 ? (duration - elapsed) / 1000 : 1;
+      ctx.globalAlpha = Math.max(0, opacity);
+
+      pieces.forEach(p => {
+        p.y += p.speedY;
+        p.x += p.speedX + Math.sin(p.wobble) * 0.8;
+        p.wobble += p.wobbleSpeed;
+        p.rotation += p.rotationSpeed;
+
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate((p.rotation * Math.PI) / 180);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.sizeW / 2, -p.sizeH / 2, p.sizeW, p.sizeH);
+        ctx.restore();
+      });
+
+      animId = requestAnimationFrame(render);
+    };
+
+    animId = requestAnimationFrame(render);
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = canvas.offsetWidth || window.innerWidth;
+      height = canvas.height = canvas.offsetHeight || 380;
+    };
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="pointer-events-none absolute inset-0 w-full h-full z-20"
+      aria-hidden="true"
+    />
+  );
+}
 
 export default function RankingGeral() {
   const { data, season } = usePhotoData();
@@ -31,31 +116,22 @@ export default function RankingGeral() {
   const roles = [...new Set(ranking.map(item => item.role).filter(Boolean))];
   const evaluated = ranking.filter(item => Number(item.evaluations || 0) > 0);
   const podium = evaluated.slice(0, 3);
-  const average = evaluated.length ? Math.round(evaluated.reduce((sum, item) => sum + Number(item.score || 0), 0) / evaluated.length) : 0;
-  const clearFilters = () => { setSearch(''); setClientId(''); setPostId(''); setRole(''); setBadge(''); };
+  const clearFilters = () => { setSearch(''); setClientId(''); setPostId(''); setRole(''); setBadge(''); setSeasonId(season?.id || ''); };
+  const activeFilterCount = [search, clientId, postId, role, badge, (seasonId && seasonId !== season?.id) ? seasonId : ''].filter(Boolean).length;
 
   return (
     <div className="ranking-page page-enter">
-      <header className="ranking-header !justify-end mb-3">
-        <label className="ranking-season"><span>Temporada</span><select value={currentSeasonId} onChange={event => setSeasonId(event.target.value)}>{data.seasons.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-      </header>
-
-      {currentEmployee && <section className="my-ranking" aria-label="Minha posição no ranking">
+      {currentEmployee && <section className="my-ranking mb-3" aria-label="Minha posição no ranking">
         <Avatar name={currentEmployee.name} src={currentEmployee.photo} size="md" />
         <div className="my-ranking-copy"><span>Sua posição nesta temporada</span><strong>{currentEmployee.position ? `${currentEmployee.position}º lugar` : 'Aguardando classificação'}</strong><small>{currentEmployee.name} · {currentEmployee.client}</small></div>
         <div className="my-ranking-score"><strong>{currentEmployee.score}</strong><span>pontos</span></div>
       </section>}
 
-      <section className="ranking-overview" aria-label="Resumo do ranking">
-        <div><Users size={19} /><span><strong>{ranking.length}</strong><small>participantes</small></span></div>
-        <div><Trophy size={19} /><span><strong>{evaluated.length}</strong><small>avaliados</small></span></div>
-        <div><Medal size={19} /><span><strong>{average}</strong><small>média de pontos</small></span></div>
-      </section>
-
-      {/* ── Pódio Flutuante da Temporada (Fundo Transparente) ── */}
-      <section className="bg-transparent my-4 sm:my-6" aria-label="Pódio da temporada">
+      {/* ── Pódio Flutuante da Temporada (Fundo Transparente com Confetes) ── */}
+      <section className="bg-transparent my-3 sm:my-5 relative overflow-hidden" aria-label="Pódio da temporada">
+        {podium.length > 0 && <ConfettiEffect />}
         {podium.length > 0 ? (
-          <div className="pt-2 pb-2 px-1 sm:px-4 bg-transparent">
+          <div className="pt-2 pb-2 px-1 sm:px-4 bg-transparent relative z-10">
             {/* ── Visual Pedestal Podium Grid (Sempre 3 colunas, inclusive no mobile) ── */}
             <div className="grid grid-cols-3 gap-2 sm:gap-4 items-end max-w-xl mx-auto">
               
@@ -86,7 +162,6 @@ export default function RankingGeral() {
                     <span className="text-[9px] text-slate-400">Aguardando</span>
                   </div>
                 )}
-                {/* Degrau 2 */}
                 {/* Degrau 2 (Flutuante) */}
                 <div className="w-full h-20 sm:h-28 rounded-2xl bg-gradient-to-t from-slate-300 via-slate-200 to-slate-100 border border-slate-300/80 shadow-[0_8px_20px_rgba(100,116,139,0.22)] flex flex-col items-center justify-center relative overflow-hidden transition-transform hover:-translate-y-1">
                   <div className="absolute inset-x-0 top-0 h-1 bg-white/70" />
@@ -125,7 +200,7 @@ export default function RankingGeral() {
                   <div className="absolute inset-x-0 top-0 h-1.5 bg-white/80" />
                   <span className="text-4xl sm:text-6xl font-black text-amber-800/40 select-none">1</span>
                   <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider text-amber-950 flex items-center gap-1">
-                    <Trophy size={11} className="text-amber-800" /> Campeão
+                    <Trophy size={11} className="text-amber-800" /> Ouro
                   </span>
                 </div>
               </div>
@@ -175,11 +250,12 @@ export default function RankingGeral() {
       </section>
 
       <div className="ranking-actions">
-        <button className={`filter-button ${filtersOpen ? 'active' : ''}`} onClick={() => setFiltersOpen(value => !value)} aria-expanded={filtersOpen}><Filter size={16} /> Filtros{[search, clientId, postId, role, badge].filter(Boolean).length > 0 && <span>{[search, clientId, postId, role, badge].filter(Boolean).length}</span>}</button>
+        <button className={`filter-button ${filtersOpen ? 'active' : ''}`} onClick={() => setFiltersOpen(value => !value)} aria-expanded={filtersOpen}><Filter size={16} /> Filtros{activeFilterCount > 0 && <span>{activeFilterCount}</span>}</button>
         <a href={`/api/export/ranking?season=${encodeURIComponent(currentSeasonId)}`} className="ranking-export"><Download size={15} /> Exportar</a>
       </div>
 
       {filtersOpen && <section className="ranking-filters" aria-label="Filtros do ranking">
+        <label><span>Temporada</span><select className={selectCls} value={currentSeasonId} onChange={event => setSeasonId(event.target.value)}>{data.seasons.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <label className="ranking-search"><span>Buscar colaborador</span><div><Search size={15} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Nome ou matrícula" /></div></label>
         <label><span>Empresa</span><select className={selectCls} value={clientId} onChange={event => { setClientId(event.target.value); setPostId(''); }}><option value="">Todas</option>{data.clients.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <label><span>Posto</span><select className={selectCls} value={postId} onChange={event => setPostId(event.target.value)}><option value="">Todos</option>{clientPosts.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>

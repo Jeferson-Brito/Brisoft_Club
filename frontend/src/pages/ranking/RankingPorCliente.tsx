@@ -161,7 +161,7 @@ export default function RankingPorCliente() {
                       </div>
                       <div className="w-full h-20 rounded-t-xl bg-gradient-to-t from-amber-400 via-amber-300 to-amber-100 border-t-2 border-x border-amber-300 shadow-2xs flex flex-col items-center justify-center">
                         <span className="text-2xl font-black text-amber-800/40 select-none">1</span>
-                        <span className="text-[8px] font-black text-amber-900 uppercase">Campeão</span>
+                        <span className="text-[8px] font-black text-amber-900 uppercase">Ouro</span>
                       </div>
                     </div>
 
