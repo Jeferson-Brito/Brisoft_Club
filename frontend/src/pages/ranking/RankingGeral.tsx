@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, Filter, Medal, Search, Trophy, Users, X } from 'lucide-react';
+import { Download, Filter, Medal, Search, Trophy, Users, X, Crown } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { usePhotoData } from '../../app/photo-data';
 
@@ -53,19 +53,136 @@ export default function RankingGeral() {
         <div className="ranking-leader"><Avatar name={ranking[0]?.name || '—'} src={ranking[0]?.photo} size="sm" /><span><strong>{ranking[0]?.name || 'Sem resultado'}</strong><small>{ranking[0] ? `1º lugar · ${ranking[0].score} pontos` : 'Aguardando avaliações'}</small></span></div>
       </section>
 
-      <section className="ranking-podium" aria-label="Pódio da temporada">
-        <header><div><Trophy size={18} /><strong>Pódio da temporada</strong></div><span>Os três colaboradores com maior pontuação</span></header>
-        {podium.length ? <div className="podium-grid">
-          {[podium[1], podium[0], podium[2]].filter(Boolean).map((item: any) => {
-            const position = podium.indexOf(item) + 1;
-            return <article key={item.employeeId || item.id} className={`podium-place podium-place-${position}`}>
-              <span className="podium-medal">{position === 1 ? '🥇' : position === 2 ? '🥈' : '🥉'}</span>
-              <Avatar name={item.name} src={item.photo} size="md" />
-              <div><strong>{item.name}</strong><small>{item.client} · {item.post}</small></div>
-              <b>{item.score} <small>pontos</small></b>
-            </article>;
-          })}
-        </div> : <div className="podium-empty">O pódio aparecerá assim que a primeira avaliação for concluída.</div>}
+      {/* ── Pódio Real da Temporada ── */}
+      <section className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden mb-4" aria-label="Pódio da temporada">
+        <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/60">
+          <div className="flex items-center gap-2 text-amber-500 font-bold text-sm">
+            <Trophy size={18} className="text-amber-500" />
+            <strong className="text-slate-800 text-sm sm:text-base">Pódio da temporada</strong>
+          </div>
+          <span className="text-xs text-slate-500 hidden sm:inline">Os colaboradores com maior pontuação</span>
+        </header>
+
+        {podium.length > 0 ? (
+          <div className="pt-6 pb-3 px-2 sm:px-6 bg-gradient-to-b from-amber-50/20 via-white to-slate-50/70">
+            {/* ── Visual Pedestal Podium Grid (Sempre 3 colunas, inclusive no mobile) ── */}
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-4 items-end max-w-xl mx-auto">
+              
+              {/* ── 2º LUGAR (ESQUERDA - PRATA) ── */}
+              <div className="flex flex-col items-center min-w-0">
+                {podium[1] ? (
+                  <div className="flex flex-col items-center w-full mb-2">
+                    <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs mb-1.5">
+                      🥈 2º
+                    </span>
+                    <div className="relative mb-1">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full ring-3 ring-slate-300 ring-offset-2 overflow-hidden shadow-sm flex items-center justify-center bg-white">
+                        <Avatar name={podium[1].name} src={podium[1].photo} size="md" />
+                      </div>
+                    </div>
+                    <div className="w-full text-center px-0.5">
+                      <div className="font-bold text-[11px] sm:text-sm text-slate-800 truncate" title={podium[1].name}>{podium[1].name}</div>
+                      <div className="text-[9px] sm:text-xs text-slate-400 truncate" title={`${podium[1].client} · ${podium[1].post}`}>{podium[1].client}</div>
+                    </div>
+                    <div className="mt-0.5 font-black text-xs sm:text-sm text-slate-700">
+                      {podium[1].score} <span className="text-[9px] font-semibold text-slate-400">pts</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center w-full mb-2 opacity-50">
+                    <span className="text-[10px] font-bold text-slate-400 mb-1">🥈 2º</span>
+                    <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 text-xs mb-1">?</div>
+                    <span className="text-[9px] text-slate-400">Aguardando</span>
+                  </div>
+                )}
+                {/* Degrau 2 */}
+                <div className="w-full h-20 sm:h-28 rounded-t-xl bg-gradient-to-t from-slate-300 via-slate-200 to-slate-100 border-t-2 border-x border-slate-300 shadow-xs flex flex-col items-center justify-center relative overflow-hidden">
+                  <div className="absolute inset-x-0 top-0 h-1 bg-white/60" />
+                  <span className="text-3xl sm:text-4xl font-black text-slate-500/40 select-none">2</span>
+                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-600/80">Prata</span>
+                </div>
+              </div>
+
+              {/* ── 1º LUGAR (CENTRO - OURO / MAIS ALTO) ── */}
+              <div className="flex flex-col items-center min-w-0 z-10">
+                {podium[0] ? (
+                  <div className="flex flex-col items-center w-full mb-2">
+                    <Crown size={22} className="text-amber-500 fill-amber-400 drop-shadow-sm mb-0.5" />
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-xs mb-1.5">
+                      🥇 1º
+                    </span>
+                    <div className="relative mb-1">
+                      <div className="w-15 h-15 sm:w-20 sm:h-20 rounded-full ring-4 ring-amber-400 ring-offset-2 overflow-hidden shadow-md flex items-center justify-center bg-white">
+                        <Avatar name={podium[0].name} src={podium[0].photo} size="lg" />
+                      </div>
+                      <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider shadow-xs whitespace-nowrap">
+                        LÍDER
+                      </span>
+                    </div>
+                    <div className="w-full text-center px-0.5">
+                      <div className="font-extrabold text-xs sm:text-base text-slate-900 truncate" title={podium[0].name}>{podium[0].name}</div>
+                      <div className="text-[9px] sm:text-xs text-amber-700/80 font-semibold truncate" title={`${podium[0].client} · ${podium[0].post}`}>{podium[0].client}</div>
+                    </div>
+                    <div className="mt-0.5 font-black text-sm sm:text-base text-amber-600">
+                      {podium[0].score} <span className="text-[10px] font-bold text-amber-500">pts</span>
+                    </div>
+                  </div>
+                ) : null}
+                {/* Degrau 1 (Mais Alto) */}
+                <div className="w-full h-30 sm:h-40 rounded-t-2xl bg-gradient-to-t from-amber-400 via-amber-300 to-amber-200 border-t-4 border-x-2 border-amber-300 shadow-md flex flex-col items-center justify-center relative overflow-hidden">
+                  <div className="absolute inset-x-0 top-0 h-1.5 bg-white/70" />
+                  <span className="text-4xl sm:text-6xl font-black text-amber-800/40 select-none">1</span>
+                  <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider text-amber-950 flex items-center gap-1">
+                    <Trophy size={11} className="text-amber-800" /> Campeão
+                  </span>
+                </div>
+              </div>
+
+              {/* ── 3º LUGAR (DIREITA - BRONZE) ── */}
+              <div className="flex flex-col items-center min-w-0">
+                {podium[2] ? (
+                  <div className="flex flex-col items-center w-full mb-2">
+                    <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 shadow-2xs mb-1.5">
+                      🥉 3º
+                    </span>
+                    <div className="relative mb-1">
+                      <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-full ring-3 ring-amber-700/40 ring-offset-2 overflow-hidden shadow-sm flex items-center justify-center bg-white">
+                        <Avatar name={podium[2].name} src={podium[2].photo} size="md" />
+                      </div>
+                    </div>
+                    <div className="w-full text-center px-0.5">
+                      <div className="font-bold text-[11px] sm:text-sm text-slate-800 truncate" title={podium[2].name}>{podium[2].name}</div>
+                      <div className="text-[9px] sm:text-xs text-slate-400 truncate" title={`${podium[2].client} · ${podium[2].post}`}>{podium[2].client}</div>
+                    </div>
+                    <div className="mt-0.5 font-black text-xs sm:text-sm text-amber-900">
+                      {podium[2].score} <span className="text-[9px] font-semibold text-slate-400">pts</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center w-full mb-2 opacity-50">
+                    <span className="text-[10px] font-bold text-amber-800 mb-1">🥉 3º</span>
+                    <div className="w-11 h-11 sm:w-13 sm:h-13 rounded-full border-2 border-dashed border-amber-300 flex items-center justify-center text-amber-700 text-xs mb-1">?</div>
+                    <span className="text-[9px] text-slate-400">Aguardando</span>
+                  </div>
+                )}
+                {/* Degrau 3 (Mais Baixo) */}
+                <div className="w-full h-15 sm:h-22 rounded-t-xl bg-gradient-to-t from-amber-700/30 via-amber-600/20 to-amber-100 border-t-2 border-x border-amber-600/30 shadow-xs flex flex-col items-center justify-center relative overflow-hidden">
+                  <div className="absolute inset-x-0 top-0 h-1 bg-white/50" />
+                  <span className="text-2xl sm:text-3xl font-black text-amber-900/30 select-none">3</span>
+                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-900/70">Bronze</span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Linha base de apoio do pódio */}
+            <div className="max-w-xl mx-auto h-2 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 rounded-b-xl border-t border-slate-300/70" />
+          </div>
+        ) : (
+          <div className="p-8 text-center text-xs text-slate-500">
+            O pódio aparecerá assim que a primeira avaliação for concluída.
+          </div>
+        )}
       </section>
 
       <div className="ranking-actions">

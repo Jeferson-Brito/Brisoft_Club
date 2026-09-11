@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "short_name": "Clube Talentos",
   "name": "Clube de Talentos - Grupo Combate",
   "description": "Sistema de Gestão e Avaliação de Talentos",
@@ -6,13 +7,25 @@
     {
       "src": "/logo/Logo_Club_Talentos_Transparente_sem_nome.png",
       "type": "image/png",
-      "sizes": "192x192 256x256 384x384 512x512",
+      "sizes": "192x192",
       "purpose": "any"
     },
     {
       "src": "/logo/Logo_Club_Talentos_Transparente_sem_nome.png",
       "type": "image/png",
-      "sizes": "192x192 256x256 384x384 512x512",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/logo/Logo_Club_Talentos_Transparente_sem_nome.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo/Logo_Club_Talentos_Transparente_sem_nome.png",
+      "type": "image/png",
+      "sizes": "512x512",
       "purpose": "maskable"
     },
     {

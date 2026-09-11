@@ -1649,7 +1649,7 @@ tbody tr:hover {
 .ranking-empty { padding: 35px !important; text-align: center; color: var(--muted) !important; }
 .ranking-table-card footer { padding: 10px 14px; border-top: 1px solid var(--line); }
 @media (max-width: 1000px) { .ranking-overview { grid-template-columns: repeat(2, 1fr); }.ranking-filters { grid-template-columns: repeat(2, 1fr); }.ranking-search { grid-column: 1 / -1; } }
-@media (max-width: 640px) { .ranking-header { align-items: stretch; flex-direction: column; }.ranking-season { min-width: 0; }.ranking-overview { grid-template-columns: 1fr 1fr; }.ranking-leader { grid-column: 1 / -1; }.ranking-podium > header { align-items: flex-start; flex-direction: column; }.podium-grid { grid-template-columns: 1fr; }.podium-place { min-height: 72px; }.podium-place-1 { min-height: 76px; order: -1; }.ranking-filters { grid-template-columns: 1fr; }.ranking-search { grid-column: auto; }.my-ranking-score { align-self: start; }.ranking-table-scroll { max-height: 62vh; } }
+@media (max-width: 640px) { .ranking-header { align-items: stretch; flex-direction: column; }.ranking-season { min-width: 0; }.ranking-overview { grid-template-columns: 1fr 1fr; }.ranking-leader { grid-column: 1 / -1; }.ranking-podium > header { align-items: flex-start; flex-direction: column; }.ranking-filters { grid-template-columns: 1fr; }.ranking-search { grid-column: auto; }.my-ranking-score { align-self: start; }.ranking-table-scroll { max-height: 62vh; } }
 
 /* ── Mobile Navigation & Touch Optimizations ── */
 .mobile-bottom-nav {
