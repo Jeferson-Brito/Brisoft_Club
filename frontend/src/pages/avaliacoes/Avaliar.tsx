@@ -1,8 +1,8 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
-  ChevronRight, ChevronLeft, ChevronDown, Send, User, MapPin,
+  ChevronRight, ChevronLeft, ChevronDown, Send, MapPin,
   UserCheck, CheckCircle2, Calendar, Star, FileText,
-  Building2, RotateCcw, Save, X, Pencil, Check
+  Building2, RotateCcw, Pencil, Check, X
 } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { api } from '../../app/state';
@@ -26,7 +26,6 @@ export default function Avaliar() {
   const [ratings, setRatings] = useState<Ratings>({});
   const [comments, setComments] = useState<{ [key: string]: string }>({});
   const [compliment, setCompliment] = useState('');
-  const [done, setDone] = useState<Array<string | number>>([]);
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -35,28 +34,6 @@ export default function Avaliar() {
   const [step, setStep] = useState<'criterion' | 'summary'>('criterion');
   const [hasSavedDraft, setHasSavedDraft] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
-  const [draftModalOpen, setDraftModalOpen] = useState(false);
-  const draftModalRef = useRef<HTMLDivElement>(null);
-
-  const hasAnyData = useMemo(() => {
-    return (
-      Object.keys(ratings).length > 0 ||
-      Object.values(comments).some(c => Boolean(c?.trim())) ||
-      Boolean(compliment?.trim())
-    );
-  }, [ratings, comments, compliment]);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (draftModalRef.current && !draftModalRef.current.contains(e.target as Node)) {
-        setDraftModalOpen(false);
-      }
-    };
-    if (draftModalOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [draftModalOpen]);
 
   const criteria = useMemo(() => (season?.rules?.criteria || []).map((criterion: any, index: number) => ({
     id: String(criterion.id),
@@ -78,8 +55,6 @@ export default function Avaliar() {
 
   const employee = toEvaluate[currentIdx];
   const total = toEvaluate.length;
-  const evaluated = done.length;
-  const completionPct = total ? Math.round(evaluated / total * 100) : 0;
 
   // Key for local storage draft persistence per user and collaborator
   const draftStorageKey = employee && data?.user?.id
@@ -218,7 +193,6 @@ export default function Avaliar() {
         localStorage.removeItem(draftStorageKey);
       }
 
-      setDone(prev => [...prev, employee.id]);
       setRatings({});
       setComments({});
       setCompliment('');
@@ -301,6 +275,9 @@ export default function Avaliar() {
                 <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/60">
                   {employee?.role || 'Colaborador'}
                 </span>
+                <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 flex-shrink-0" title={`Colaborador ${currentIdx + 1} de ${total}`}>
+                  {currentIdx + 1}/{total}
+                </span>
               </div>
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500 mt-1 font-medium">
@@ -322,72 +299,6 @@ export default function Avaliar() {
             </div>
           </div>
 
-          {/* Right: Progress box + Auto-save indicator */}
-          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end pt-1.5 sm:pt-0 border-t sm:border-t-0 border-slate-100 flex-shrink-0">
-            {hasSavedDraft && hasAnyData && (
-              <div className="relative" ref={draftModalRef}>
-                <button
-                  type="button"
-                  onClick={() => setDraftModalOpen(prev => !prev)}
-                  className="w-7 h-7 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 flex items-center justify-center text-emerald-600 transition-colors shadow-2xs cursor-pointer"
-                  aria-label="Status do rascunho"
-                  title="Rascunho salvo (clique para ver detalhes)"
-                >
-                  <Save size={13} />
-                </button>
-
-                {draftModalOpen && (
-                  <div
-                    className="absolute right-0 top-full mt-1.5 z-40 bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-xl w-60 text-left animate-in fade-in"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <div className="flex items-center gap-1.5 text-emerald-700 font-bold text-xs">
-                        <Save size={13} className="text-emerald-600 flex-shrink-0" />
-                        <span>Rascunho salvo</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setDraftModalOpen(false)}
-                        className="text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
-                        aria-label="Fechar"
-                      >
-                        <X size={13} />
-                      </button>
-                    </div>
-                    <p className="text-[11px] text-slate-500 leading-relaxed">
-                      Suas respostas estão salvas automaticamente neste aparelho.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleClearDraft();
-                        setDraftModalOpen(false);
-                      }}
-                      className="mt-2.5 text-[10px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer pt-1.5 border-t border-slate-100 w-full"
-                    >
-                      <RotateCcw size={11} />
-                      <span>Limpar rascunho</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="bg-slate-50 border border-slate-200/80 rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 text-center min-w-[105px] sm:min-w-[130px] shadow-2xs ml-auto sm:ml-0">
-              <div className="text-[11px] sm:text-xs font-bold text-slate-800 flex items-center justify-center gap-1">
-                <User size={12} className="text-blue-600" />
-                <span>{evaluated + 1} de {total}</span>
-              </div>
-              <div className="text-[9px] sm:text-[10px] text-slate-400 font-medium">avaliados</div>
-              <div className="w-full bg-slate-200 h-1 sm:h-1.5 rounded-full mt-0.5 overflow-hidden">
-                <div
-                  className="bg-blue-600 h-full rounded-full transition-all duration-300"
-                  style={{ width: `${completionPct}%` }}
-                />
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
