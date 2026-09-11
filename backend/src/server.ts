@@ -3,6 +3,11 @@ import { createApp } from "./app.ts";
 import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 if (existsSync(".env")) loadEnvFile(".env");
+if (
+  process.env.NODE_ENV === "production" &&
+  (!process.env.APP_ORIGIN || !process.env.APP_ORIGIN.startsWith("https://"))
+)
+  throw new Error("Em produção, configure APP_ORIGIN com uma URL HTTPS.");
 const store = await new Store().init(process.env.DATABASE_URL);
 const app = createApp(store);
 const scheduler = setInterval(() => {

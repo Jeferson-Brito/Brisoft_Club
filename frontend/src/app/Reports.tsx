@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useData, type Row } from "./state";
-import { Heading, DataTable, Panel, Action } from "./ui";
+import { Heading, DataTable, Action } from "./ui";
 export function Reports() {
   const { data } = useData();
   const [kind, setKind] = useState("evaluations");
@@ -89,7 +89,8 @@ export function Reports() {
           Exportar Excel
         </Action>
       </Heading>
-      <Panel>
+      <details className="filter-disclosure panel">
+        <summary className="filter-summary">Filtros do relatório</summary>
         <div className="filters">
           <label>
             Relatório
@@ -123,7 +124,7 @@ export function Reports() {
             </select>
           </label>
         </div>
-      </Panel>
+      </details>
       <div className="screen-only">
         <DataTable
           title="Resultado do relatório"

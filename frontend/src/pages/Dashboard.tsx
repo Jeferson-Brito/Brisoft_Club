@@ -1,7 +1,7 @@
 import { Users, Building2, CheckSquare, Trophy, AlertCircle, ChevronRight, Calendar } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
-import { employees } from '../data/mock';
+import { usePhotoData } from '../app/photo-data';
 import { Link } from 'react-router-dom';
 
 /* ── Mini donut SVG ─────────────────────────────────────────────────── */
@@ -27,33 +27,6 @@ function HBar({ pct, color }: { pct: number; color: string }) {
     </div>
   );
 }
-
-/* ── Static data ────────────────────────────────────────────────────── */
-const clientProgress = [
-  { name: 'Shopping Boa Vista',       pct: 100, color: '#10b981' },
-  { name: 'Hospital Central',         pct: 85,  color: '#10b981' },
-  { name: 'Centro Empresarial Alpha', pct: 70,  color: '#1B6EF3' },
-  { name: 'Condomínio Parque Sul',    pct: 55,  color: '#f59e0b' },
-  { name: 'Indústria Paulista',       pct: 40,  color: '#ef4444' },
-];
-
-const topCollab = employees.slice(0, 5);
-
-const lastEvals = [
-  { name: 'Lucas Ferreira',   client: 'Shopping Boa Vista',       date: '10/04/2025', nota: 5 },
-  { name: 'Mariana Alves',    client: 'Hospital Central',          date: '10/04/2025', nota: 4 },
-  { name: 'Rogério Lima',     client: 'Condomínio Parque Sul',     date: '09/04/2025', nota: 3 },
-  { name: 'Patrícia Souza',   client: 'Indústria Paulista',        date: '09/04/2025', nota: 5 },
-  { name: 'Daniel Martins',   client: 'Centro Empresarial Alpha',  date: '08/04/2025', nota: 4 },
-];
-
-const pendencias = [
-  { label: 'Avaliações pendentes',         count: 952, color: 'bg-red-500' },
-  { label: 'Clientes sem avaliação',       count: 18,  color: 'bg-orange-500' },
-  { label: 'Inconsistências na importação', count: 7,  color: 'bg-amber-500' },
-  { label: 'Colaboradores sem alocação',   count: 12,  color: 'bg-orange-400' },
-  { label: 'Solicitações de acesso',       count: 3,   color: 'bg-blue-500' },
-];
 
 const notaColor = (n: number) => n >= 5 ? '#059669' : n >= 4 ? '#10b981' : n >= 3 ? '#f59e0b' : '#ef4444';
 
@@ -83,22 +56,56 @@ function CardHeader({ icon, title, sub }: { icon: React.ReactNode; title: string
 
 /* ══════════════════════════════════════════════════════════════════════ */
 export default function Dashboard() {
+  const { employees, clients, evaluations, pending, season, cycles } = usePhotoData();
+  const sent = evaluations.filter(item => item.status === 'enviada');
+  const total = sent.length + pending.length;
+  const progress = total ? Math.round(sent.length / total * 100) : 0;
+  const topCollab = [...employees].filter(item => item.score > 0).sort((a, b) => b.score - a.score).slice(0, 5);
+  const clientProgress = clients.slice(0, 5).map(client => ({
+    name: client.name,
+    pct: client.employees ? Math.round(employees.filter(item => item.clientId === client.id && item.score > 0).length / client.employees * 100) : 0,
+    color: '#10b981',
+  }));
+  const lastEvals = sent.slice(-5).reverse().map(item => ({
+    name: item.employee,
+    photo: item.photo,
+    client: item.client,
+    date: item.date,
+    nota: item.scores.length
+      ? Number((item.scores.reduce((sum: number, value: number) => sum + value, 0) / item.scores.length).toFixed(1))
+      : 0,
+  }));
+  const notStartedCount = pending.filter(item => item.status !== 'iniciada').length;
+  const startedCount = pending.filter(item => item.status === 'iniciada').length;
+  const pendencias = [
+    { label: 'Avaliações pendentes', count: pending.length, color: 'bg-red-500' },
+    { label: 'Clientes sem avaliação', count: clients.filter(client => !sent.some(item => item.clientId === client.id)).length, color: 'bg-orange-500' },
+    { label: 'Colaboradores sem alocação', count: employees.filter(item => !item.postId).length, color: 'bg-amber-500' },
+  ];
+  const badges = employees.reduce<Record<string, number>>((counts, employee) => {
+    if (employee.badge) counts[employee.badge] = (counts[employee.badge] || 0) + 1;
+    return counts;
+  }, {});
+  const highlighted = Object.values(badges).reduce((sum, count) => sum + count, 0);
+  const timeline = [
+    ...cycles.map(item => ({
+      name: item.name,
+      sub: `${item.start} – ${item.end}`,
+      status: item.status === 'encerrado' ? 'concluida' : item.status === 'ativo' ? 'andamento' : 'aguardando',
+      color: item.status === 'encerrado' ? '#10b981' : item.status === 'ativo' ? '#1B6EF3' : '#94a3b8',
+      pct: item.status === 'ativo' ? progress : undefined,
+    })),
+    { name: 'Resultado Final', sub: season?.publishDate || '—', status: season?.status === 'publicada' ? 'concluida' : 'aguardando', color: season?.status === 'publicada' ? '#10b981' : '#94a3b8', pct: undefined },
+  ];
   return (
     <div className="space-y-5 max-w-[1400px] mx-auto">
 
-      {/* ── Page header ──────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Visão geral do Clube de Talentos</p>
-        </div>
-        <div className="text-right flex-shrink-0">
-          <div className="text-xs text-slate-500 font-semibold">Temporada Atual:</div>
-          <select className="mt-1 text-sm font-bold text-slate-800 border border-slate-200 rounded-xl px-3 py-1.5 bg-white outline-none focus:ring-2 focus:ring-blue-100 shadow-xs">
-            <option>1ª Temporada 2025</option>
-            <option>2ª Temporada 2024</option>
-          </select>
-          <div className="text-[11px] text-slate-400 mt-0.5">(Jan/2025 – Abr/2025)</div>
+      {/* ── Season badge ──────────────────────────────────────────────── */}
+      <div className="flex justify-end">
+        <div className="inline-flex items-center gap-2 bg-white border border-slate-200/80 rounded-xl px-3 py-1.5 shadow-xs text-xs">
+          <span className="text-slate-400 font-medium">Temporada:</span>
+          <span className="font-bold text-slate-800">{season?.name || 'Nenhuma temporada'}</span>
+          {season && <span className="text-[11px] text-slate-400">({season.start} – {season.end})</span>}
         </div>
       </div>
 
@@ -111,10 +118,10 @@ export default function Dashboard() {
             <Users size={22} />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-2xl font-black text-slate-800 leading-tight">1.248</div>
+            <div className="text-2xl font-black text-slate-800 leading-tight">{employees.length}</div>
             <div className="text-sm text-slate-500 font-medium mt-0.5">Colaboradores</div>
             <div className="text-[11px] text-emerald-600 font-semibold mt-1 flex items-center gap-0.5">
-              <span>↑</span> +5% em relação à temporada anterior
+              Base cadastrada na plataforma
             </div>
           </div>
         </Card>
@@ -125,10 +132,10 @@ export default function Dashboard() {
             <Building2 size={22} />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-2xl font-black text-slate-800 leading-tight">87</div>
+            <div className="text-2xl font-black text-slate-800 leading-tight">{clients.length}</div>
             <div className="text-sm text-slate-500 font-medium mt-0.5">Clientes</div>
             <div className="text-[11px] text-emerald-600 font-semibold mt-1 flex items-center gap-0.5">
-              <span>↑</span> +3% em relação à temporada anterior
+              Clientes ativos e em implantação
             </div>
           </div>
         </Card>
@@ -139,12 +146,12 @@ export default function Dashboard() {
             <CheckSquare size={22} />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-2xl font-black text-slate-800 leading-tight">62%</div>
+            <div className="text-2xl font-black text-slate-800 leading-tight">{progress}%</div>
             <div className="text-sm text-slate-500 font-medium mt-0.5">Avaliações concluídas</div>
             <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500 rounded-full" style={{ width: '62%' }} />
+              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${progress}%` }} />
             </div>
-            <div className="text-[11px] text-slate-400 mt-1">1.548 de 2.500 avaliações</div>
+            <div className="text-[11px] text-slate-400 mt-1">{sent.length} de {total} avaliações</div>
           </div>
         </Card>
 
@@ -154,13 +161,13 @@ export default function Dashboard() {
             <Trophy size={22} />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-2xl font-black text-slate-800 leading-tight">152</div>
+            <div className="text-2xl font-black text-slate-800 leading-tight">{highlighted}</div>
             <div className="text-sm text-slate-500 font-medium mt-0.5">Colaboradores em destaque</div>
             <div className="flex flex-wrap gap-1.5 mt-2">
-              <span className="badge-ouro">48 Ouro</span>
-              <span className="badge-prata">62 Prata</span>
-              <span className="badge-bronze">32 Bronze</span>
-              <span className="badge-diamante">10 💎</span>
+              <span className="badge-ouro">{badges.ouro || 0} Ouro</span>
+              <span className="badge-prata">{badges.prata || 0} Prata</span>
+              <span className="badge-bronze">{badges.bronze || 0} Bronze</span>
+              <span className="badge-diamante">{badges.diamante || 0} 💎</span>
             </div>
           </div>
         </Card>
@@ -179,9 +186,9 @@ export default function Dashboard() {
           <div className="flex items-center gap-6">
             {/* Donut */}
             <div className="relative flex-shrink-0">
-              <DonutChart pct={62} />
+              <DonutChart pct={progress} />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-xl font-black text-slate-800">62%</span>
+                <span className="text-xl font-black text-slate-800">{progress}%</span>
                 <span className="text-[10px] text-slate-400 font-medium">Concluídas</span>
               </div>
             </div>
@@ -190,17 +197,17 @@ export default function Dashboard() {
               <div className="flex items-center gap-2.5">
                 <span className="w-3 h-3 rounded-full bg-emerald-500 flex-shrink-0" />
                 <span className="text-xs text-slate-500">Concluídas</span>
-                <span className="ml-auto font-bold text-slate-800 text-sm">1.548</span>
+                <span className="ml-auto font-bold text-slate-800 text-sm">{sent.length}</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <span className="w-3 h-3 rounded-full bg-blue-300 flex-shrink-0" />
-                <span className="text-xs text-slate-500">Pendentes</span>
-                <span className="ml-auto font-bold text-slate-800 text-sm">952</span>
+                <span className="text-xs text-slate-500">Iniciadas</span>
+                <span className="ml-auto font-bold text-slate-800 text-sm">{startedCount}</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <span className="w-3 h-3 rounded-full bg-slate-200 flex-shrink-0" />
                 <span className="text-xs text-slate-500">Não iniciadas</span>
-                <span className="ml-auto font-bold text-slate-800 text-sm">0</span>
+                <span className="ml-auto font-bold text-slate-800 text-sm">{notStartedCount}</span>
               </div>
             </div>
           </div>
@@ -238,18 +245,16 @@ export default function Dashboard() {
           />
           <div className="mb-4">
             <div className="flex items-center justify-between">
-              <div className="font-bold text-slate-800">1ª Temporada 2025</div>
-              <span className="badge-andamento">Em andamento</span>
+              <div className="font-bold text-slate-800">{season?.name || 'Nenhuma temporada'}</div>
+              <span className={season?.status === 'ativa' ? 'badge-andamento' : 'badge-encerrada'}>
+                {season?.status === 'ativa' ? 'Em andamento' : season?.status === 'publicada' ? 'Publicada' : 'Encerrada'}
+              </span>
             </div>
-            <div className="text-xs text-slate-400 mt-0.5">Jan/2025 – Abr/2025</div>
+            <div className="text-xs text-slate-400 mt-0.5">{season ? `${season.start} – ${season.end}` : '—'}</div>
           </div>
 
           <div className="space-y-4">
-            {[
-              { name: '1º Bimestre',   sub: 'Jan/2025 – Fev/2025', status: 'concluida', color: '#10b981', pct: undefined },
-              { name: '2º Bimestre',   sub: 'Mar/2025 – Abr/2025', status: 'andamento', color: '#1B6EF3', pct: 62 },
-              { name: 'Resultado Final', sub: '03/05/2025',         status: 'aguardando', color: '#94a3b8', pct: undefined },
-            ].map((step, i) => (
+            {timeline.map((step, i) => (
               <div key={i} className="flex items-start gap-3">
                 <div
                   className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-xs font-bold"
@@ -312,7 +317,7 @@ export default function Dashboard() {
                   </td>
                   <td className="py-2.5 pr-2">
                     <div className="flex items-center gap-2">
-                      <Avatar name={e.name} size="xs" />
+                      <Avatar name={e.name} src={e.photo} size="xs" />
                       <span className="text-xs font-semibold text-slate-700 truncate max-w-[90px]">{e.name}</span>
                     </div>
                   </td>
@@ -350,7 +355,7 @@ export default function Dashboard() {
                 <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-2.5 pr-2">
                     <div className="flex items-center gap-2">
-                      <Avatar name={ev.name} size="xs" />
+                      <Avatar name={ev.name} src={ev.photo} size="xs" />
                       <span className="font-semibold text-slate-700 truncate max-w-[80px]">{ev.name}</span>
                     </div>
                   </td>

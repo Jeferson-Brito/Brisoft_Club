@@ -1,101 +1,129 @@
-import { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useData } from '../../app/state';
 import {
-  LayoutDashboard, Star, Trophy, Users, Building2, Calendar,
-  Award, Upload, BarChart3, UserCog, Settings, ChevronDown,
-  ChevronRight,
+  LayoutDashboard, Star, Trophy, Users,
+  BarChart3, Settings, ChevronDown,
+  ChevronRight, X,
 } from 'lucide-react';
 
 interface NavItem {
   label: string;
   icon: React.ReactNode;
   path?: string;
-  children?: { label: string; path: string }[];
+  permission?: string | string[];
+  children?: { label: string; path: string; permission: string | string[] }[];
 }
 
 const NAV: NavItem[] = [
-  { label: 'Dashboard', icon: <LayoutDashboard size={18} />, path: '/' },
+  { label: 'Dashboard', icon: <LayoutDashboard size={18} />, path: '/', permission: 'dashboard' },
+  {
+    label: 'Cadastros', icon: <Users size={18} />,
+    children: [
+      { label: 'Colaboradores', path: '/colaboradores', permission: 'employees' },
+      { label: 'Clientes', path: '/clientes', permission: 'clients' },
+      { label: 'Postos', path: '/clientes/gestao?tab=posts', permission: 'clients' },
+      { label: 'Vínculos de trabalho', path: '/colaboradores/gestao?tab=allocations', permission: 'employees' },
+    ],
+  },
   {
     label: 'Avaliações', icon: <Star size={18} />,
+    permission: 'evaluate',
     children: [
-      { label: 'Avaliar', path: '/avaliacoes/avaliar' },
-      { label: 'Pendentes', path: '/avaliacoes/pendentes' },
-      { label: 'Concluídas', path: '/avaliacoes/concluidas' },
-      { label: 'Histórico', path: '/avaliacoes/historico' },
+      { label: 'Avaliar', path: '/avaliacoes/avaliar', permission: 'evaluate' },
+      { label: 'Pendentes', path: '/avaliacoes/pendentes', permission: 'evaluate' },
+      { label: 'Concluídas', path: '/avaliacoes/concluidas', permission: ['evaluate', 'evaluations'] },
+      { label: 'Histórico', path: '/avaliacoes/historico', permission: ['evaluate', 'evaluations'] },
+      { label: 'Não avaliados', path: '/avaliacoes/nao-avaliados', permission: 'evaluations' },
     ],
   },
   {
-    label: 'Ranking', icon: <Trophy size={18} />,
+    label: 'Desempenho', icon: <Trophy size={18} />,
     children: [
-      { label: 'Ranking Geral', path: '/ranking/geral' },
-      { label: 'Por Cliente', path: '/ranking/por-cliente' },
-      { label: 'Pódio', path: '/ranking/podio' },
-      { label: 'Histórico', path: '/ranking/historico' },
+      { label: 'Ranking', path: '/ranking/geral', permission: 'ranking' },
+      { label: 'Conquistas', path: '/conquistas', permission: 'achievements' },
     ],
   },
-  { label: 'Colaboradores', icon: <Users size={18} />, path: '/colaboradores' },
-  { label: 'Clientes', icon: <Building2 size={18} />, path: '/clientes' },
-  { label: 'Temporadas', icon: <Calendar size={18} />, path: '/temporadas' },
-  { label: 'Conquistas', icon: <Award size={18} />, path: '/conquistas' },
-  { label: 'Importações', icon: <Upload size={18} />, path: '/importacoes' },
-  { label: 'Relatórios', icon: <BarChart3 size={18} />, path: '/relatorios' },
-  { label: 'Usuários e Acessos', icon: <UserCog size={18} />, path: '/usuarios' },
-  { label: 'Configurações', icon: <Settings size={18} />, path: '/configuracoes' },
+  {
+    label: 'Dados e relatórios', icon: <BarChart3 size={18} />,
+    children: [
+      { label: 'Importações', path: '/importacoes', permission: 'imports' },
+      { label: 'Relatórios', path: '/relatorios', permission: 'reports' },
+    ],
+  },
+  {
+    label: 'Administração', icon: <Settings size={18} />,
+    children: [
+      { label: 'Temporadas', path: '/temporadas', permission: 'seasons' },
+      { label: 'Usuários e acessos', path: '/usuarios', permission: 'users' },
+      { label: 'Configurações', path: '/configuracoes', permission: 'settings' },
+    ],
+  },
 ];
 
-const QUOTES = [
-  '"Grandes resultados são construídos por grandes pessoas."',
-  '"Reconhecer talentos é construir um futuro mais forte."',
-  '"Talento é resultado de atitude, e atitude transforma realidades."',
-  '"Talentos constroem resultados extraordinários."',
-];
-
-export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+export function Sidebar({ collapsed, onToggle, onCloseMobile }: { collapsed: boolean; onToggle: () => void; onCloseMobile?: () => void }) {
   const { data } = useData();
-  const permissionFor: Record<string, string> = {'Dashboard':'dashboard','Avaliações':'evaluate','Ranking':'ranking','Colaboradores':'employees','Clientes':'clients','Temporadas':'seasons','Conquistas':'achievements','Importações':'imports','Relatórios':'reports','Usuários e Acessos':'users','Configurações':'settings'};
-  const visibleNav = NAV.filter(item => data.role.permissions.includes(permissionFor[item.label]) || (item.label==='Avaliações' && data.role.permissions.includes('evaluations'))).map(item => ({...item,children:item.children?.filter(child => child.path!=='/avaliacoes/avaliar'||data.role.permissions.includes('evaluate'))}));
   const location = useLocation();
-  const [open, setOpen] = useState<string[]>(['Avaliações', 'Ranking']);
+  const hasPermission = (permission?: string | string[]) => !permission || (Array.isArray(permission)
+    ? permission.some(item => data.role.permissions.includes(item))
+    : data.role.permissions.includes(permission));
+  const visibleNav = NAV
+    .map(item => ({ ...item, children: item.children?.filter(child => hasPermission(child.permission)) }))
+    .filter(item => item.path ? hasPermission(item.permission) : hasPermission(item.permission) && Boolean(item.children?.length));
+  const activeGroups = visibleNav.filter(item => item.children?.some(child => location.pathname === child.path.split('?')[0])).map(item => item.label);
+  const [open, setOpen] = useState<string[]>(activeGroups.length ? activeGroups : ['Cadastros']);
+
+  useEffect(() => {
+    setOpen(current => [...new Set([...current, ...activeGroups])]);
+  }, [location.pathname]);
 
   const toggle = (label: string) =>
     setOpen(prev => prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]);
 
   const isChildActive = (children: { path: string }[]) =>
-    children.some(c => location.pathname.startsWith(c.path));
+    children.some(c => location.pathname === c.path.split('?')[0]);
 
-  const quote = QUOTES[Math.floor(Date.now() / 86400000) % QUOTES.length];
+  const isExactChildActive = (path: string) => {
+    const [pathname, query = ''] = path.split('?');
+    if (location.pathname !== pathname) return false;
+    if (!query) return !['/clientes/gestao', '/colaboradores/gestao'].includes(location.pathname);
+    return new URLSearchParams(location.search).get('tab') === new URLSearchParams(query).get('tab');
+  };
 
   return (
     <aside
-      className="flex flex-col h-screen flex-shrink-0 transition-all duration-300"
+      className={`sidebar-minimal ${collapsed ? 'is-collapsed' : ''} flex flex-col h-screen flex-shrink-0 transition-all duration-300`}
       style={{
-        width: collapsed ? 64 : 220,
-        background: '#0F1117',
-        borderRight: '1px solid rgba(255,255,255,0.06)',
+        width: collapsed ? 72 : 250,
       }}
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-white/5">
-        <button
-          onClick={onToggle}
-          title={collapsed ? "Expandir menu" : "Recolher menu"}
-          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity border-0"
-          style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
-        >
-          <span className="text-white font-black text-lg">★</span>
-        </button>
-        {!collapsed && (
-          <div>
-            <div className="text-white font-black text-sm leading-tight tracking-wide">CLUBE DE</div>
-            <div className="text-white font-black text-sm leading-tight tracking-wide">TALENTOS</div>
-            <div className="text-slate-500 text-[9px] font-medium tracking-widest mt-0.5">PESSOAS QUE FAZEM A DIFERENÇA</div>
+      <div className="sidebar-brand flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="sidebar-brand-mark" aria-hidden="true">
+            <Star size={22} strokeWidth={2.2} />
           </div>
+          {!collapsed && (
+            <div className="sidebar-brand-copy">
+              <strong>Clube de Talentos</strong>
+              <small>{data.organization}</small>
+            </div>
+          )}
+        </div>
+        {onCloseMobile && (
+          <button
+            onClick={onCloseMobile}
+            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors"
+            aria-label="Fechar menu"
+          >
+            <X size={20} />
+          </button>
         )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+        {!collapsed && <div className="sidebar-section-label">Navegação</div>}
         {visibleNav.map(item => {
           if (item.path) {
             return (
@@ -105,6 +133,8 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                 end={item.path === '/'}
                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                 title={collapsed ? item.label : undefined}
+                data-tooltip={collapsed ? item.label : undefined}
+                onClick={() => onCloseMobile?.()}
               >
                 <span className="flex-shrink-0">{item.icon}</span>
                 {!collapsed && <span>{item.label}</span>}
@@ -118,9 +148,14 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
           return (
             <div key={item.label}>
               <button
-                onClick={() => toggle(item.label)}
+                onClick={() => {
+                  if (collapsed) onToggle();
+                  if (!isOpen) toggle(item.label);
+                  else if (!collapsed) toggle(item.label);
+                }}
                 className={`sidebar-link w-full ${childActive && !isOpen ? 'text-blue-400' : ''}`}
                 title={collapsed ? item.label : undefined}
+                data-tooltip={collapsed ? item.label : undefined}
               >
                 <span className="flex-shrink-0">{item.icon}</span>
                 {!collapsed && (
@@ -133,14 +168,20 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
               {!collapsed && isOpen && item.children && (
                 <div className="mt-0.5 space-y-0.5">
                   {item.children.map(child => (
-                    <NavLink
+                    <Link
                       key={child.path}
                       to={child.path}
-                      className={({ isActive }) => `sidebar-sub-link ${isActive ? 'active' : ''}`}
+                      className={`sidebar-sub-link ${isExactChildActive(child.path) ? 'active' : ''}`}
+                      aria-current={isExactChildActive(child.path) ? 'page' : undefined}
+                      onClick={event => {
+                        event.currentTarget.blur();
+                        onCloseMobile?.();
+                      }}
+                      data-help={child.label === 'Vínculos de trabalho' ? 'Define em qual empresa e posto cada colaborador trabalha, com data de início e responsável opcional.' : `Abre a área ${child.label}.`}
                     >
                       <span className="w-1 h-1 rounded-full bg-current opacity-60 flex-shrink-0" />
                       {child.label}
-                    </NavLink>
+                    </Link>
                   ))}
                 </div>
               )}
@@ -148,13 +189,6 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
           );
         })}
       </nav>
-
-      {/* Quote at bottom */}
-      {!collapsed && (
-        <div className="px-4 py-4 border-t border-white/5">
-          <p className="text-slate-500 text-[10px] italic leading-relaxed">{quote}</p>
-        </div>
-      )}
     </aside>
   );
 }

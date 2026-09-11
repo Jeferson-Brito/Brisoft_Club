@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Upload, FileSpreadsheet } from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle2, Clock3, XCircle } from "lucide-react";
 import { api, dateLabel, useData } from "./state";
 import { Heading, Panel, Action, DataTable, Status, csvDownload } from "./ui";
 export function Imports() {
@@ -37,6 +37,12 @@ export function Imports() {
         title="Importações"
         description="Importe colaboradores, clientes e postos com prévia e validação antes de salvar."
       />
+      <div className="photo-summary">
+        <div className="photo-stat"><Upload /><span><strong>{data.imports.length}</strong><small>Importações realizadas</small></span></div>
+        <div className="photo-stat green"><CheckCircle2 /><span><strong>{data.imports.filter(item => item.status === 'concluida').length}</strong><small>Importações concluídas</small></span></div>
+        <div className="photo-stat amber"><Clock3 /><span><strong>{data.imports.filter(item => item.status === 'previa').length}</strong><small>Aguardando confirmação</small></span></div>
+        <div className="photo-stat red"><XCircle /><span><strong>{data.imports.filter(item => item.errors > 0).length}</strong><small>Importações com erros</small></span></div>
+      </div>
       <Panel>
         <div className="upload-zone">
           <FileSpreadsheet size={42} />
@@ -53,7 +59,7 @@ export function Imports() {
             }}
           />
           <small>
-            Colunas: matrícula, nome, função, cliente e posto. Matrículas
+            Colunas: matrícula, CPF, nome, função, cliente e posto. Matrículas
             existentes serão atualizadas.
           </small>
           <div className="actions mt">
@@ -70,13 +76,14 @@ export function Imports() {
                     {
                       id: "modelo",
                       matricula: "EXEMPLO-001",
+                      cpf: "52998224725",
                       nome: "Nome do colaborador",
                       funcao: "Vigilante",
                       cliente: "Nome do cliente",
                       posto: "Portaria",
                     },
                   ],
-                  ["matricula", "nome", "funcao", "cliente", "posto"].map(
+                  ["matricula", "cpf", "nome", "funcao", "cliente", "posto"].map(
                     (key) => ({ key, label: key }),
                   ),
                 )
@@ -90,7 +97,7 @@ export function Imports() {
       {preview?.needsMapping && (
         <Panel title="Relacionar colunas">
           <div className="form-grid">
-            {["matricula", "nome", "funcao", "cliente", "posto"].map((key) => (
+            {["matricula", "cpf", "nome", "funcao", "cliente", "posto"].map((key) => (
               <label key={key}>
                 {key}
                 <select
@@ -128,6 +135,7 @@ export function Imports() {
             columns={[
               { key: "line", label: "Linha" },
               { key: "matricula", label: "Matrícula" },
+              { key: "cpf", label: "CPF" },
               { key: "nome", label: "Nome" },
               { key: "funcao", label: "Função" },
               { key: "cliente", label: "Cliente" },

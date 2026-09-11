@@ -150,7 +150,7 @@ export function Dashboard() {
             .map((r, i) => (
               <div className="leader-row" key={r.id}>
                 <strong>{i + 1}</strong>
-                <Avatar name={r.name} size="sm" />
+                <Avatar name={r.name} src={r.photo} size="sm" />
                 <div>
                   <strong>{r.name}</strong>
                   <small>{r.client}</small>
@@ -175,7 +175,7 @@ export function Dashboard() {
             .slice(0, 5)
             .map((e) => (
               <div className="leader-row" key={e.id}>
-                <Avatar name={e.snapshot.name} size="sm" />
+                <Avatar name={e.snapshot.name} src={e.snapshot.photo} size="sm" />
                 <div>
                   <strong>{e.snapshot.name}</strong>
                   <small>
@@ -228,7 +228,9 @@ export function Rankings({
         title={title}
         description="Resultados calculados com o regulamento preservado de cada temporada."
       />
-      <div className="filters panel">
+      <details className="filter-disclosure panel">
+        <summary className="filter-summary">Filtros do desempenho</summary>
+        <div className="filters">
         <label>
           Temporada
           <select
@@ -263,7 +265,8 @@ export function Rankings({
             ))}
           </select>
         </label>
-      </div>
+        </div>
+      </details>
       {season && (
         <div className="notice">
           {season.status === "publicada"
@@ -305,7 +308,7 @@ export function Rankings({
                   <Panel key={r.id}>
                     <div className={`podium-person place-${i}`}>
                       <Trophy size={36} />
-                      <Avatar name={r.name} size="xl" />
+                      <Avatar name={r.name} src={r.photo} size="xl" />
                       <span className="eyebrow">{i + 1}º LUGAR</span>
                       <h2>{r.name}</h2>
                       <p>

@@ -3,12 +3,16 @@ import type { ReactNode } from "react";
 export type Row = { id: string; [key: string]: any };
 export type State = {
   organization: string;
+  employeeAccessDomain: string;
   user: Row;
   role: Row;
   clients: Row[];
   posts: Row[];
+  clientPosts: Row[];
   employees: Row[];
   allocations: Row[];
+  penaltyTypes: Row[];
+  employeeActions: Row[];
   participants: Row[];
   evaluations: Row[];
   seasons: Row[];
@@ -18,6 +22,7 @@ export type State = {
   roles: Row[];
   imports: Row[];
   settings: Row | null;
+  unevaluatedAlert: Row[];
   audit: Row[];
 };
 export async function api(path: string, body?: unknown) {

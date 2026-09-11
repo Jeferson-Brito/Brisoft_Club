@@ -74,7 +74,6 @@ test("fluxo completo: autenticação, vínculos, regras congeladas, duplicidade,
       name: "Administrador",
       email: "admin@example.test",
       password: "TestPassword123!",
-      demo: true,
     });
     assert.equal(setup.status, 201);
     adminCookie = setup.cookie;
@@ -83,27 +82,58 @@ test("fluxo completo: autenticação, vínculos, regras congeladas, duplicidade,
       409,
     );
     let state = await ok("/state");
-    assert.equal(state.employees.length, 6);
+    assert.equal(state.employees.length, 0);
     assert.equal(state.user.passwordHash, undefined);
     assert.equal(state.users[0].passwordHash, undefined);
-    const post = state.posts[0];
-    const employee = state.employees[0];
     const clientRole = state.roles.find((r: any) => r.name === "Cliente");
+    const supervisorRole = state.roles.find((r: any) => r.name === "Supervisor");
+    await ok("/settings/employee-access", { domain: "@example.test" });
+    const primaryClient = await ok("/records/clients", {
+      name: "Cliente A",
+      status: "ativo",
+    });
+    const post = await ok("/records/posts", {
+      name: "Portaria A",
+      status: "ativo",
+    });
+    await ok("/records/clientPosts", { clientId: primaryClient.id, postId: post.id });
+    const eligibleAdmission = new Date(Date.now() - 120 * 86400000).toISOString().slice(0, 10);
+    const employee = await ok("/employees/save", {
+      name: "Pessoa avaliada",
+      cpf: "52998224725",
+      registration: "TEST-1",
+      role: "Vigilante",
+      admissionDate: eligibleAdmission,
+      photo: "data:image/png;base64,aGVsbG8=",
+      status: "ativo",
+      clientId: primaryClient.id,
+      postId: post.id,
+      allocationStart: new Date().toISOString().slice(0, 10),
+      supervisorId: "",
+    });
+    state = await ok("/state");
+    const employeeAccount = state.users.find((u: any) => u.employeeId === employee.id);
+    assert.equal(employee.loginEmail, "pessoa.avaliada@example.test");
+    assert.equal(employeeAccount.mustChangePassword, true);
+    const employeeLogin = await request("/auth/login", { email: employee.loginEmail, password: "52998224725" });
+    assert.equal(employeeLogin.status, 200);
+    assert.equal((await request("/export/ranking", undefined, employeeLogin.cookie)).status, 403);
+    assert.equal((await request("/auth/password", { current: "52998224725", password: "NovaSenhaSegura123!" }, employeeLogin.cookie)).status, 200);
     const otherClient = await ok("/records/clients", {
       name: "Cliente B",
       status: "ativo",
     });
     const otherPost = await ok("/records/posts", {
       name: "Porto B",
-      clientId: otherClient.id,
       status: "ativo",
     });
+    await ok("/records/clientPosts", { clientId: otherClient.id, postId: otherPost.id });
     const reviewer = await ok("/records/users", {
       name: "Cliente A",
       email: "reviewer@example.test",
       password: "TestPassword123!",
       roleId: clientRole.id,
-      clientIds: [],
+      clientIds: [primaryClient.id],
       postIds: [post.id],
       status: "ativo",
     });
@@ -116,6 +146,15 @@ test("fluxo completo: autenticação, vínculos, regras congeladas, duplicidade,
       postIds: [],
       status: "ativo",
     });
+    const supervisor = await ok("/records/users", {
+      name: "Supervisor A",
+      email: "supervisor@example.test",
+      password: "TestPassword123!",
+      roleId: supervisorRole.id,
+      clientIds: [primaryClient.id],
+      postIds: [post.id],
+      status: "ativo",
+    });
     const login = await request("/auth/login", {
       email: reviewer.email,
       password: "TestPassword123!",
@@ -126,6 +165,7 @@ test("fluxo completo: autenticação, vínculos, regras congeladas, duplicidade,
       password: "TestPassword123!",
     });
     const outsideCookie = outside.cookie;
+    const supervisorCookie = (await request("/auth/login", { email: supervisor.email, password: "TestPassword123!" })).cookie;
     assert.equal(
       (
         await request(
@@ -141,34 +181,85 @@ test("fluxo completo: autenticação, vínculos, regras congeladas, duplicidade,
       0,
     );
     const current = new Date().toISOString().slice(0, 10);
+    const periodStart = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
     const rules = structuredClone(defaultRules);
-    rules.provisional = false;
+    rules.provisional = true;
     rules.minimumCycles = 1;
     rules.complimentPoints = 20;
     rules.scale.at(-1)!.points = 30;
     await ok("/settings", rules);
     const season = await ok("/records/seasons", {
       name: "Temporada 1",
-      start: current,
+      start: periodStart,
       end: current,
       publishDate: current,
     });
     const cycle = await ok("/records/cycles", {
       name: "Ciclo 1",
       seasonId: season.id,
-      start: current,
+      start: periodStart,
       end: current,
       deadline: current,
     });
-    await ok(`/seasons/${season.id}/activate`, {});
+    await ok(`/seasons/${season.id}/activate`, { confirmRules: true });
+    assert.equal((await ok("/state")).seasons[0].rules.provisional, false);
     await ok(`/cycles/${cycle.id}/activate`, {});
     state = await ok("/state");
     const p = state.participants.find((p: any) => p.employeeId === employee.id);
+    assert.equal(p.snapshot.photo, employee.photo);
+    const reception = await ok("/records/posts", {
+      name: "Recepção A",
+      status: "ativo",
+    });
+    await ok("/records/clientPosts", { clientId: primaryClient.id, postId: reception.id });
+    const lateEmployee = await ok("/employees/save", {
+      name: "Pessoa da recepção",
+      cpf: "39053344705",
+      registration: "TEST-2",
+      role: "Recepcionista",
+      admissionDate: eligibleAdmission,
+      photo: "",
+      status: "ativo",
+      clientId: primaryClient.id,
+      postId: reception.id,
+      allocationStart: current,
+      supervisorId: "",
+    });
+    const reviewerState = await ok("/state", undefined, reviewCookie);
+    assert.ok(reviewerState.employees.some((item: any) => item.id === lateEmployee.id));
+    assert.ok(reviewerState.participants.some((item: any) => item.employeeId === lateEmployee.id));
+    const newcomer = await ok("/employees/save", {
+      name: "Pessoa recém-contratada",
+      cpf: "12345678909",
+      registration: "TEST-3",
+      role: "Recepcionista",
+      admissionDate: current,
+      photo: "",
+      status: "ativo",
+      clientId: primaryClient.id,
+      postId: reception.id,
+      allocationStart: current,
+      supervisorId: "",
+    });
+    const stateWithNewcomer = await ok("/state", undefined, reviewCookie);
+    assert.ok(stateWithNewcomer.employees.some((item: any) => item.id === newcomer.id));
+    assert.ok(!stateWithNewcomer.participants.some((item: any) => item.employeeId === newcomer.id));
+    const supervisorState = await ok("/state", undefined, supervisorCookie);
+    assert.ok(!supervisorState.employees.some((item: any) => item.id === lateEmployee.id));
     const answers = rules.criteria.map((c) => ({
       criterionId: c.id,
       value: 5,
       comment: "",
     }));
+    const block = await ok("/employee-actions", {
+      employeeId: employee.id,
+      type: "cycle_block",
+      seasonId: season.id,
+      cycleId: cycle.id,
+      reason: "Advertência em apuração",
+    });
+    assert.equal((await request("/evaluations", { participantId: p.id, answers }, reviewCookie)).status, 400);
+    await ok(`/employee-actions/${block.id}/revoke`, {});
     assert.equal(
       (
         await request(
@@ -208,24 +299,40 @@ test("fluxo completo: autenticação, vínculos, regras congeladas, duplicidade,
     assert.deepEqual([first.status, second.status].sort(), [200, 409]);
     const evaluation = first.status === 200 ? first.data : second.data;
     assert.equal(evaluation.score, 90);
+    assert.equal((await request("/evaluations", { participantId: p.id, answers }, supervisorCookie)).status, 409);
+    assert.equal((await ok("/state", undefined, supervisorCookie)).participants.length, 0);
     await ok(`/evaluations/${evaluation.id}/approve`, {});
     state = await ok("/state");
     assert.equal(
       state.evaluations.find((e: any) => e.id === evaluation.id).score,
       110,
     );
+    const penaltyType = await ok("/records/penaltyTypes", {
+      name: "Advertência",
+      description: "Desconto disciplinar",
+      points: 10,
+      status: "ativo",
+    });
+    await ok("/employee-actions", {
+      employeeId: employee.id,
+      type: "penalty",
+      penaltyTypeId: penaltyType.id,
+      seasonId: season.id,
+      reason: "Advertência confirmada",
+    });
     const changed = structuredClone(rules);
     changed.scale.at(-1)!.points = 999;
     await ok("/settings", changed);
     assert.equal((await ok("/state")).seasons[0].rules.scale.at(-1).points, 30);
     await ok("/records/allocations", {
       employeeId: employee.id,
+      clientId: otherClient.id,
       postId: otherPost.id,
       start: current,
       supervisorId: "",
     });
     state = await ok("/state");
-    assert.equal(state.evaluations[0].snapshot.clientId, post.clientId);
+    assert.equal(state.evaluations[0].snapshot.clientId, primaryClient.id);
     assert.equal(
       state.allocations.filter((a: any) => a.employeeId === employee.id).length,
       2,
@@ -242,7 +349,8 @@ test("fluxo completo: autenticação, vínculos, regras congeladas, duplicidade,
     await ok(`/seasons/${season.id}/close`, {});
     await ok(`/seasons/${season.id}/publish`, {});
     state = await ok("/state");
-    assert.equal(state.rankings[season.id][0].score, 110);
+    assert.equal(state.rankings[season.id][0].score, 100);
+    assert.equal(state.rankings[season.id][0].penaltyPoints, 10);
     assert.equal(state.rankings[season.id][0].badge, "ouro");
     assert.equal(
       (
@@ -253,7 +361,7 @@ test("fluxo completo: autenticação, vínculos, regras congeladas, duplicidade,
       400,
     );
     const csv =
-      "matricula;nome;funcao;cliente;posto\nIMP1;Pessoa Importada;Vigilante;Novo Cliente;Portaria\n";
+      "matricula;cpf;nome;funcao;cliente;posto\nIMP1;11144477735;Pessoa Importada;Vigilante;Novo Cliente;Portaria\n";
     const preview = await ok("/imports/preview", {
       name: "base.csv",
       content: Buffer.from(csv).toString("base64"),
@@ -268,13 +376,41 @@ test("fluxo completo: autenticação, vínculos, regras congeladas, duplicidade,
     const bad = await ok("/imports/preview", {
       name: "erros.csv",
       content: Buffer.from(
-        csv + "IMP1;Duplicado;Vigilante;Novo Cliente;Portaria\n",
+        csv + "IMP1;11144477735;Duplicado;Vigilante;Novo Cliente;Portaria\n",
       ).toString("base64"),
     });
     assert.equal(bad.errors, 1);
     assert.equal((await request(`/imports/${bad.id}/confirm`, {})).status, 400);
-    const workbook=new ExcelJS.Workbook();const sheet=workbook.addWorksheet('Base');sheet.addRows([['matricula','nome','funcao','cliente','posto'],['XLS1','Pessoa Excel','Vigilante','Cliente Excel','Posto Excel']]);
+    const workbook=new ExcelJS.Workbook();const sheet=workbook.addWorksheet('Base');sheet.addRows([['matricula','cpf','nome','funcao','cliente','posto'],['XLS1','12345678909','Pessoa Excel','Vigilante','Cliente Excel','Posto Excel']]);
     const xlsx=await ok('/imports/preview',{name:'base.xlsx',content:Buffer.from(await workbook.xlsx.writeBuffer()).toString('base64')});assert.equal(xlsx.records,1);assert.equal(xlsx.errors,0);
+    const removableEmployee = await ok("/employees/save", {
+      name: "Colaborador removível",
+      cpf: "16899535009",
+      registration: "REMOVE-1",
+      role: "Vigilante",
+      admissionDate: eligibleAdmission,
+      photo: "",
+      status: "ativo",
+      clientId: primaryClient.id,
+      postId: post.id,
+      allocationStart: current,
+      supervisorId: "",
+    });
+    await ok(`/records/employees/${removableEmployee.id}/delete`, { confirm: true });
+    state = await ok("/state");
+    assert.equal(state.employees.some((item: any) => item.id === removableEmployee.id), false);
+    assert.equal(state.users.some((item: any) => item.employeeId === removableEmployee.id), false);
+    const removableClient = await ok("/records/clients", { name: "Cliente removível", status: "ativo" });
+    await ok(`/records/clients/${removableClient.id}/delete`, { confirm: true });
+    assert.equal((await ok("/state")).clients.some((item: any) => item.id === removableClient.id), false);
+    const removableSeason = await ok("/records/seasons", {
+      name: "Temporada removível",
+      start: "2027-01-01",
+      end: "2027-06-30",
+      publishDate: "2027-07-01",
+    });
+    await ok(`/records/seasons/${removableSeason.id}/delete`, { confirm: true });
+    assert.equal((await ok("/state")).seasons.some((item: any) => item.id === removableSeason.id), false);
     const exportRes = await fetch(url + "/api/export/ranking", {
       headers: { cookie: adminCookie },
     });
@@ -301,8 +437,8 @@ test("fluxo completo: autenticação, vínculos, regras congeladas, duplicidade,
     await db.close();
   }
   const reopened = await new Store().init(undefined, file);
-  assert.equal((await reopened.all("employees")).length, 7);
-  assert.equal((await reopened.all("seasons"))[0].result[0].score, 110);
+  assert.equal((await reopened.all("employees")).length, 4);
+  assert.equal((await reopened.all("seasons"))[0].result[0].score, 100);
   await reopened.close();
   await rm(dir, { recursive: true, force: true });
 });

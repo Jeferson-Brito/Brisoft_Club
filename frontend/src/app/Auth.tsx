@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { api } from "./state";
 export function Auth({
   initialized,
@@ -9,6 +10,7 @@ export function Auth({
 }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   return (
     <main className="auth">
       <section className="auth-brand">
@@ -51,7 +53,6 @@ export function Auth({
                       name: f.get("name"),
                       email: f.get("email"),
                       password: f.get("password"),
-                      demo: f.get("demo") === "on",
                     },
               );
               onSuccess();
@@ -75,28 +76,32 @@ export function Auth({
             </>
           )}
           <label>
-            E-mail
+            E-mail ou login
             <input name="email" type="email" autoComplete="username" required />
           </label>
           <label>
             Senha
-            <input
-              name="password"
-              type="password"
-              autoComplete={initialized ? "current-password" : "new-password"}
-              minLength={initialized ? 1 : 10}
-              maxLength={128}
-              required
-            />
+            <div className="password-control">
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete={initialized ? "current-password" : "new-password"}
+                minLength={initialized ? 1 : 10}
+                maxLength={128}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(value => !value)}
+                aria-label={showPassword ? "Ocultar senha" : "Visualizar senha"}
+                title={showPassword ? "Ocultar senha" : "Visualizar senha"}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </label>
           {!initialized && (
-            <>
-              <small>Use ao menos 10 caracteres.</small>
-              <label className="inline-check">
-                <input name="demo" type="checkbox" /> Incluir seis colaboradores
-                de demonstração
-              </label>
-            </>
+            <small>Use ao menos 10 caracteres.</small>
           )}
           {error && (
             <p className="error" role="alert">

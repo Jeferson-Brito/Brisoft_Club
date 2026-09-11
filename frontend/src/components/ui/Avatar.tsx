@@ -19,6 +19,7 @@ interface AvatarProps {
   name: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   color?: string;
+  src?: string;
 }
 
 const SIZES = {
@@ -29,15 +30,15 @@ const SIZES = {
   xl: { wh: 'w-20 h-20', text: 'text-2xl' },
 };
 
-export function Avatar({ name, size = 'md', color }: AvatarProps) {
+export function Avatar({ name, size = 'md', color, src }: AvatarProps) {
   const { wh, text } = SIZES[size];
   const bg = color ?? getColor(name);
   return (
     <div
       className={`${wh} ${text} rounded-full flex items-center justify-center font-bold text-white flex-shrink-0`}
-      style={{ background: bg }}
+      style={{ background: bg, overflow: 'hidden' }}
     >
-      {getInitials(name)}
+      {src ? <img src={src} alt={`Foto de ${name}`} className="h-full w-full object-cover" /> : getInitials(name)}
     </div>
   );
 }

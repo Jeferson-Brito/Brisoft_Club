@@ -26,6 +26,8 @@ import {
   scoreEvaluation,
   rankingRows,
   classify,
+  normalizeCpf,
+  validCpf,
 } from "./domain.ts";
 
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
@@ -34,16 +36,35 @@ export function passwordHash(password: string) {
   return `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
 }
 function passwordValid(password: string, encoded: string) {
-  const [salt, key] = encoded.split(":");
-  return timingSafeEqual(
-    scryptSync(password, salt, 64),
-    Buffer.from(key, "hex"),
-  );
+  try {
+    const [salt, key] = encoded.split(":");
+    if (!salt || !key || !/^[a-f0-9]{128}$/i.test(key)) return false;
+    return timingSafeEqual(
+      scryptSync(password, salt, 64),
+      Buffer.from(key, "hex"),
+    );
+  } catch {
+    return false;
+  }
 }
 const safeUser = (u: RecordData) => {
   const { passwordHash: _, ...rest } = u;
   return rest;
 };
+const normalizedName = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const employeeLoginLocal = (name: string) =>
+  normalizedName(name).trim().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "") || "colaborador";
+function completesMonthsOn(date: string, months: number) {
+  const [year, month, day] = date.split("-").map(Number);
+  const targetMonth = month - 1 + months;
+  const targetYear = year + Math.floor(targetMonth / 12);
+  const normalizedMonth = ((targetMonth % 12) + 12) % 12;
+  const lastDay = new Date(Date.UTC(targetYear, normalizedMonth + 1, 0)).getUTCDate();
+  return `${targetYear}-${String(normalizedMonth + 1).padStart(2, "0")}-${String(Math.min(day, lastDay)).padStart(2, "0")}`;
+}
+const hasMinimumTenure = (admissionDate: string, reference = today()) =>
+  Boolean(admissionDate) && completesMonthsOn(admissionDate, 3) <= reference;
 type Context = { db: TenantStore; user: RecordData; role: RecordData };
 const cookie = (req: express.Request) =>
   req.headers.cookie
@@ -54,11 +75,25 @@ const cookie = (req: express.Request) =>
 export function createApp(store: Store) {
   const app = express();
   app.disable("x-powered-by");
-  app.set("trust proxy", false);
+  app.set("trust proxy", process.env.TRUST_PROXY === "true" ? 1 : false);
   app.use((_req, res, next) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Referrer-Policy", "same-origin");
     res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+    res.setHeader(
+      "Permissions-Policy",
+      "camera=(), microphone=(), geolocation=(), payment=()",
+    );
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'",
+    );
+    if (process.env.NODE_ENV === "production")
+      res.setHeader(
+        "Strict-Transport-Security",
+        "max-age=31536000; includeSubDomains",
+      );
     next();
   });
   app.use("/api", (_req, res, next) => {
@@ -73,8 +108,19 @@ export function createApp(store: Store) {
     ) {
       const expected =
         process.env.APP_ORIGIN || `${req.protocol}://${req.get("host")}`;
+      const allowedOrigins = new Set([expected]);
+      try {
+        const configured = new URL(expected);
+        if (["localhost", "127.0.0.1"].includes(configured.hostname)) {
+          const port = configured.port ? `:${configured.port}` : "";
+          allowedOrigins.add(`${configured.protocol}//localhost${port}`);
+          allowedOrigins.add(`${configured.protocol}//127.0.0.1${port}`);
+        }
+      } catch {
+        // Uma APP_ORIGIN inválida continuará aceitando somente o valor literal.
+      }
       if (
-        req.headers.origin !== expected &&
+        !allowedOrigins.has(req.headers.origin) &&
         !(
           process.env.NODE_ENV !== "production" &&
           /^http:\/\/(localhost|127\.0\.0\.1):(5173|5174|4173)$/.test(
@@ -102,7 +148,23 @@ export function createApp(store: Store) {
     const user = await store.get("users", session.userId);
     assert(user && user.status === "ativo", "Acesso indisponível", 401);
     const db = new TenantStore(store, user.tenantId);
-    const role = await must(db, "roles", user.roleId);
+    let role = await must(db, "roles", user.roleId);
+    const profile = normalizedName(role.name);
+    const evaluatorProfile = ["cliente", "supervisor", "fiscal"].includes(profile);
+    const enforcedPermissions = evaluatorProfile
+      ? ["evaluate", "ranking"]
+      : role.permissions.filter((item: string) => item !== "evaluate");
+    if (
+      ["administrador", "analista combate", "colaborador", "cliente", "supervisor", "fiscal"].includes(profile) &&
+      (enforcedPermissions.length !== role.permissions.length ||
+        enforcedPermissions.some((item: string, index: number) => item !== role.permissions[index]))
+    )
+      role = await db.put("roles", { ...role, permissions: enforcedPermissions, updatedAt: now() });
+    assert(
+      !permission || !user.mustChangePassword,
+      "Troque sua senha inicial antes de continuar",
+      403,
+    );
     assert(
       !permission || role.permissions.includes(permission),
       "Você não tem permissão para esta ação",
@@ -128,9 +190,10 @@ export function createApp(store: Store) {
   }
   app.get(
     "/api/health",
-    route(async (_req, res) =>
-      res.json({ ok: true, database: store.postgres ? "postgres" : "sqlite" }),
-    ),
+    route(async (_req, res) => {
+      await store.query("SELECT 1 AS healthy");
+      res.json({ ok: true, database: store.postgres ? "postgres" : "sqlite" });
+    }),
   );
   app.get(
     "/api/auth/status",
@@ -158,7 +221,6 @@ export function createApp(store: Store) {
           name: z.string().trim().min(2).max(100),
           email: z.email(),
           password: z.string().min(10).max(128),
-          demo: z.boolean().default(false),
         })
         .parse(req.body);
       const user = await store.transaction(async () => {
@@ -172,7 +234,7 @@ export function createApp(store: Store) {
         const admin = await db.put("roles", {
           id: id(),
           name: "Administrador",
-          permissions: [...permissions],
+          permissions: permissions.filter((permission) => permission !== "evaluate"),
           globalScope: true,
         });
         await db.put("roles", {
@@ -187,9 +249,15 @@ export function createApp(store: Store) {
           await db.put("roles", {
             id: id(),
             name,
-            permissions: ["dashboard", "evaluate", "ranking", "employees"],
+            permissions: ["evaluate", "ranking"],
             globalScope: false,
           });
+        await db.put("roles", {
+          id: id(),
+          name: "Colaborador",
+          permissions: ["dashboard", "ranking"],
+          globalScope: false,
+        });
         const u = await db.put("users", {
           id: id(),
           name: input.name,
@@ -204,58 +272,11 @@ export function createApp(store: Store) {
         await db.put("settings", {
           id: `${tenantId}-rules`,
           rules: defaultRules,
+          employeeEmailDomain: "",
           version: 1,
           updatedAt: now(),
         });
-        if (input.demo) {
-          const client = await db.put("clients", {
-            id: id(),
-            name: "Cliente de demonstração",
-            cnpj: "",
-            segment: "Demonstração",
-            status: "ativo",
-            responsible: "",
-            email: "",
-            phone: "",
-          });
-          const post = await db.put("posts", {
-            id: id(),
-            name: "Portaria principal",
-            clientId: client.id,
-            code: "DEMO",
-            status: "ativo",
-            address: "",
-          });
-          for (const [index, name] of [
-            "Ana Paula Santos",
-            "Carlos Eduardo Silva",
-            "Mariana Alves",
-            "Rafael Almeida",
-            "Juliana Costa",
-            "Lucas Oliveira",
-          ].entries()) {
-            const employee = await db.put("employees", {
-              id: id(),
-              name,
-              registration: `DEMO-${index + 1}`,
-              role: index % 2 ? "Vigilante" : "Recepcionista",
-              admissionDate: today(),
-              status: "ativo",
-            });
-            await db.put("allocations", {
-              id: id(),
-              employeeId: employee.id,
-              postId: post.id,
-              clientId: client.id,
-              start: today(),
-              end: null,
-              supervisorId: "",
-            });
-          }
-        }
-        await audit(db, u.id, "configuracao_inicial", tenantId, {
-          demo: input.demo,
-        });
+        await audit(db, u.id, "configuracao_inicial", tenantId, {});
         return u;
       });
       await startSession(res, user);
@@ -292,6 +313,12 @@ export function createApp(store: Store) {
       }
       attempts.delete(key);
       await startSession(res, user);
+      await audit(
+        new TenantStore(store, user.tenantId),
+        user.id,
+        "login",
+        user.id,
+      );
       res.json({ user: safeUser(user) });
     }),
   );
@@ -320,6 +347,7 @@ export function createApp(store: Store) {
       await db.put("users", {
         ...user,
         passwordHash: passwordHash(input.password),
+        mustChangePassword: false,
       });
       for (const s of await db.all("sessions"))
         if (s.userId === user.id) await db.remove("sessions", s.id);
@@ -334,7 +362,130 @@ export function createApp(store: Store) {
       await db.all("cycles"),
       await db.all("participants"),
       await db.all("evaluations"),
+      await db.all("employeeActions"),
     );
+  }
+  async function refreshParticipantEligibility(db: TenantStore, employeeId: string, seasonId: string) {
+    const actions = (await db.all("employeeActions")).filter(
+      (a) => a.employeeId === employeeId && a.seasonId === seasonId && a.status === "ativo" && ["cycle_block", "season_suspension"].includes(a.type),
+    );
+    for (const participant of (await db.all("participants")).filter(
+      (p) => p.employeeId === employeeId && p.seasonId === seasonId,
+    )) {
+      const blocking = actions.find(
+        (a) => a.type === "season_suspension" || (a.type === "cycle_block" && a.cycleId === participant.cycleId),
+      );
+      await db.put("participants", {
+        ...participant,
+        eligible: !blocking,
+        ineligibility: blocking
+          ? { actionId: blocking.id, type: blocking.type, reason: blocking.reason }
+          : null,
+      });
+    }
+  }
+  async function syncEmployeeParticipants(
+    db: TenantStore,
+    employeeId: string,
+    suppliedRecords?: Partial<Record<Table, RecordData[]>>,
+  ) {
+    const records: Partial<Record<Table, RecordData[]>> = suppliedRecords || await db.allMany([
+      "employees", "allocations", "posts", "clientPosts", "clients", "cycles",
+      "participants", "evaluations", "employeeActions",
+    ]);
+    const employee = records.employees!.find((item) => item.id === employeeId);
+    if (!employee) return;
+    const allocations = records.allocations!
+      .filter((item) => item.employeeId === employeeId)
+      .sort((a, b) => String(b.start).localeCompare(String(a.start)));
+    for (const cycle of records.cycles!.filter((item) => item.status === "ativo")) {
+      const existing = records.participants!.find(
+        (item) => item.cycleId === cycle.id && item.employeeId === employeeId,
+      );
+      const hasFinalEvaluation = existing && records.evaluations!.some(
+        (item) => item.participantId === existing.id && item.status !== "rascunho",
+      );
+      // Avaliações concluídas preservam o retrato histórico do momento do envio.
+      if (hasFinalEvaluation) continue;
+      const allocation = allocations.find(
+        (item) => item.start <= cycle.end && (!item.end || item.end > cycle.start),
+      );
+      const post = allocation
+        ? records.posts!.find((item) => item.id === allocation.postId)
+        : undefined;
+      const client = allocation
+        ? records.clients!.find((item) => item.id === allocation.clientId)
+        : undefined;
+      const blocking = records.employeeActions!.find(
+        (action) =>
+          action.employeeId === employeeId &&
+          action.seasonId === cycle.seasonId &&
+          action.status === "ativo" &&
+          (action.type === "season_suspension" ||
+            (action.type === "cycle_block" && action.cycleId === cycle.id)),
+      );
+      const tenureEligible = hasMinimumTenure(employee.admissionDate);
+      const validLink = employee.status === "ativo" && tenureEligible && allocation &&
+        post?.status === "ativo" && client?.status === "ativo";
+      if (!validLink) {
+        if (existing) {
+          const next = {
+            ...existing,
+            eligible: false,
+            ineligibility: {
+              type: tenureEligible ? "cadastro_alocacao" : "tempo_de_empresa",
+              reason: tenureEligible
+                ? "Colaborador sem cadastro e alocação ativos para este ciclo"
+                : "Colaborador ainda não completou três meses de empresa",
+            },
+          };
+          if (existing.eligible !== false || existing.ineligibility?.type !== next.ineligibility.type) {
+            await db.put("participants", next);
+            Object.assign(existing, next);
+          }
+        }
+        continue;
+      }
+      const next = {
+        ...existing,
+        id: existing?.id || id(),
+        cycleId: cycle.id,
+        seasonId: cycle.seasonId,
+        employeeId,
+        allocationId: allocation.id,
+        eligible: !blocking,
+        ineligibility: blocking
+          ? { actionId: blocking.id, type: blocking.type, reason: blocking.reason }
+          : null,
+        snapshot: {
+          name: employee.name,
+          photo: employee.photo || "",
+          registration: employee.registration,
+          role: employee.role,
+          client: client.name,
+          clientId: client.id,
+          post: post.name,
+          postId: post.id,
+          supervisorId: allocation.supervisorId || "",
+        },
+      };
+      const unchanged = existing &&
+        existing.allocationId === next.allocationId &&
+        existing.eligible === next.eligible &&
+        existing.ineligibility?.actionId === next.ineligibility?.actionId &&
+        existing.snapshot?.name === next.snapshot.name &&
+        existing.snapshot?.photo === next.snapshot.photo &&
+        existing.snapshot?.registration === next.snapshot.registration &&
+        existing.snapshot?.role === next.snapshot.role &&
+        existing.snapshot?.clientId === next.snapshot.clientId &&
+        existing.snapshot?.postId === next.snapshot.postId &&
+        existing.snapshot?.supervisorId === next.snapshot.supervisorId;
+      if (!unchanged) {
+        const saved = await db.put("participants", next);
+        if (existing) Object.assign(existing, saved);
+        else records.participants!.push(saved);
+      }
+    }
   }
   async function publish(db: TenantStore, userId: string, season: RecordData) {
     assert(
@@ -370,6 +521,63 @@ export function createApp(store: Store) {
     });
     await audit(db, userId, "publicar_resultado", season.id);
   }
+  // Replica a avaliação de um avaliador para o outro quando apenas um dos
+  // dois tipos (cliente vs supervisor/fiscal) enviou dentro do prazo do ciclo.
+  async function replicateMissingEvaluations(db: TenantStore, cycleId: string) {
+    const roles = await db.all("roles");
+    const clientRoleIds = new Set(
+      roles.filter((r) => normalizedName(r.name) === "cliente").map((r) => r.id),
+    );
+    const supervisorRoleIds = new Set(
+      roles
+        .filter((r) => ["supervisor", "fiscal"].includes(normalizedName(r.name)))
+        .map((r) => r.id),
+    );
+    const participants = (await db.all("participants")).filter(
+      (p) => p.cycleId === cycleId && p.eligible !== false,
+    );
+    const allEvaluations = await db.all("evaluations");
+    for (const participant of participants) {
+      const pEvals = allEvaluations.filter(
+        (e) => e.participantId === participant.id && e.status === "enviada" && !e.replicated,
+      );
+      if (!pEvals.length) continue;
+      const clientEval = pEvals.find((e) => clientRoleIds.has(e.roleId));
+      const supervisorEval = pEvals.find((e) => supervisorRoleIds.has(e.roleId));
+      // Ambos já avaliaram — nada a replicar
+      if (clientEval && supervisorEval) continue;
+      const source = clientEval || supervisorEval;
+      if (!source) continue;
+      // Encontra o roleId do tipo que faltou avaliar
+      const missingRoleId = clientEval
+        ? [...supervisorRoleIds][0]
+        : [...clientRoleIds][0];
+      const missingRoleName = clientEval ? "Supervisor" : "Cliente";
+      if (!missingRoleId) continue;
+      // Verifica se já existe replicação anterior para evitar duplicatas
+      const alreadyReplicated = allEvaluations.some(
+        (e) => e.participantId === participant.id && e.replicated && e.replicatedFrom === source.id,
+      );
+      if (alreadyReplicated) continue;
+      await db.put("evaluations", {
+        ...source,
+        id: id(),
+        evaluatorId: "sistema",
+        evaluator: `Sistema (nota replicada de ${source.evaluator})`,
+        roleId: missingRoleId,
+        evaluatorRole: missingRoleName,
+        status: "enviada",
+        replicated: true,
+        replicatedFrom: source.id,
+        sentAt: now(),
+        createdAt: now(),
+      });
+      await audit(db, "sistema", "replicar_avaliacao", participant.id, {
+        sourceEvaluatorId: source.evaluatorId,
+        missingRoleName,
+      });
+    }
+  }
   async function tick(db: TenantStore) {
     for (const season of await db.all("seasons")) {
       if (season.status === "ativa" && season.rules?.autoClose) {
@@ -377,8 +585,10 @@ export function createApp(store: Store) {
           (c) => c.seasonId === season.id,
         );
         for (const c of cycles)
-          if (c.status === "ativo" && c.deadline < today())
+          if (c.status === "ativo" && c.deadline < today()) {
+            await replicateMissingEvaluations(db, c.id);
             await db.put("cycles", { ...c, status: "encerrado" });
+          }
         if (
           season.end < today() &&
           cycles.every((c) => c.deadline < today() && c.status !== "planejado")
@@ -400,37 +610,83 @@ export function createApp(store: Store) {
       const { db, user, role } = await context(req);
       await tick(db);
       const org = await store.get("organizations", db.tenantId);
-      const allClients = await db.all("clients"),
-        allPosts = await db.all("posts"),
-        allAllocations = await db.all("allocations");
-      const posts = allPosts.filter((p) =>
-        canSee(user, role, { ...p, postId: p.id }),
+      const records = await db.allMany([
+        "clients", "posts", "clientPosts", "allocations", "employees", "participants",
+        "evaluations", "seasons", "cycles", "employeeActions", "penaltyTypes",
+        "users", "roles", "imports", "settings", "audit",
+      ]);
+      // Autorrecuperação: mantém participantes de ciclos ativos sincronizados com
+      // colaboradores e vínculos sem exigir que o usuário visite outra tela.
+      if (records.cycles!.some((item) => item.status === "ativo"))
+        for (const employee of records.employees!)
+          await syncEmployeeParticipants(db, employee.id, records);
+      const allClients = records.clients!, allPosts = records.posts!, allClientPosts = records.clientPosts!,
+        allAllocations = records.allocations!, allEmployees = records.employees!,
+        allParticipants = records.participants!, allEvaluations = records.evaluations!,
+        seasons = records.seasons!, cycles = records.cycles!,
+        employeeActions = records.employeeActions!, penaltyTypes = records.penaltyTypes!,
+        allUsers = records.users!, allRoles = records.roles!, imports = records.imports!,
+        settings = records.settings![0], auditRows = records.audit!;
+      const employeeAccount = Boolean(user.employeeId);
+      const clientPosts = allClientPosts.filter((link) =>
+        canSee(user, role, { id: link.postId, postId: link.postId, clientId: link.clientId }),
       );
+      const visiblePostIds = new Set(clientPosts.map((link) => link.postId));
+      const posts = allPosts
+        .filter((post) => role.globalScope || visiblePostIds.has(post.id))
+        .map((post) => ({
+          ...post,
+          clientIds: allClientPosts.filter((link) => link.postId === post.id).map((link) => link.clientId),
+        }));
       const postIds = new Set(posts.map((p) => p.id));
-      const clients = allClients.filter(
-        (c) =>
-          role.globalScope ||
-          user.clientIds.includes(c.id) ||
-          posts.some((p) => p.clientId === c.id),
-      );
+      const clients = allClients
+        .filter((client) => role.globalScope || user.clientIds.includes(client.id))
+        .map((client) => ({
+          ...client,
+          postIds: allClientPosts.filter((link) => link.clientId === client.id).map((link) => link.postId),
+        }));
       const allocations = allAllocations.filter(
-        (a) => role.globalScope || postIds.has(a.postId),
+        (allocation) => role.globalScope || (
+          postIds.has(allocation.postId) &&
+          canSee(user, role, { id: allocation.postId, postId: allocation.postId, clientId: allocation.clientId })
+        ),
       );
       const employeeIds = new Set(allocations.map((a) => a.employeeId));
-      const employees = (await db.all("employees")).filter(
-        (e) => role.globalScope || employeeIds.has(e.id),
+      const employees = allEmployees.filter((e) =>
+        employeeAccount ? e.id === user.employeeId : role.globalScope || employeeIds.has(e.id),
+      ).map((employee) => role.globalScope ? employee : ({ ...employee, cpf: undefined }));
+      const scopeParticipants = allParticipants.filter((p) => {
+        if (!canSee(user, role, p.snapshot)) return false;
+        if (employeeAccount) return p.employeeId === user.employeeId;
+        return true;
+      });
+      const participants = scopeParticipants.filter((p) => {
+        if (!role.globalScope && role.permissions.includes("evaluate")) {
+          const profile = normalizedName(role.name);
+          // Clientes veem todos os participantes do seu clientId (canSee já filtrou acima)
+          if (profile === "cliente") return true;
+          // Supervisores/Fiscais: apenas participantes atribuídos a eles ou sem atribuição
+          const assigned = p.snapshot?.supervisorId;
+          if (assigned && assigned !== user.id) return false;
+        }
+        return true;
+      });
+      const participantIds = new Set(scopeParticipants.map((p) => p.id));
+      // Avaliação cega: avaliadores só enxergam a própria avaliação enquanto o ciclo estiver ativo.
+      // Gestores (permissão "evaluations") e colaboradores veem tudo normalmente.
+      const activeCycleIds = new Set(
+        cycles.filter((c) => c.status === "ativo").map((c) => c.id),
       );
-      const participants = (await db.all("participants")).filter((p) =>
-        canSee(user, role, p.snapshot),
-      );
-      const participantIds = new Set(participants.map((p) => p.id));
-      const evaluations = (await db.all("evaluations")).filter(
-        (e) =>
-          participantIds.has(e.participantId) &&
-          (role.permissions.includes("evaluations") ||
-            e.evaluatorId === user.id),
-      );
-      const seasons = await db.all("seasons");
+      const evaluations = allEvaluations.filter((e) => {
+        if (!participantIds.has(e.participantId)) return false;
+        // Gestores e colaboradores enxergam tudo
+        if (role.permissions.includes("evaluations") || employeeAccount) return true;
+        // Avaliadores em ciclo ativo: apenas sua própria avaliação
+        if (role.permissions.includes("evaluate") && activeCycleIds.has(e.cycleId))
+          return e.evaluatorId === user.id;
+        // Ciclo encerrado/publicado: enxerga tudo no seu escopo
+        return true;
+      });
       const rankings: Record<string, unknown> = {};
       if (role.permissions.includes("ranking"))
         for (const s of seasons) {
@@ -441,37 +697,77 @@ export function createApp(store: Store) {
             !role.globalScope
           )
             continue;
-          rankings[s.id] = (await seasonRanking(db, s)).filter(
-            (r: RecordData) => canSee(user, role, r),
+          const rows = s.result || rankingRows(s, cycles, allParticipants, allEvaluations, employeeActions);
+          rankings[s.id] = rows.filter((r: RecordData) =>
+            employeeAccount ? user.clientIds?.includes(r.clientId) : canSee(user, role, r),
           );
         }
+      // Alerta de colaboradores sem nenhuma avaliação (para admins e analistas)
+      const unevaluatedAlert = role.globalScope
+        ? (() => {
+            const alertCycleIds = new Set(
+              cycles
+                .filter((c) => ["ativo", "encerrado"].includes(c.status))
+                .map((c) => c.id),
+            );
+            return allParticipants
+              .filter(
+                (p) =>
+                  alertCycleIds.has(p.cycleId) &&
+                  p.eligible !== false &&
+                  !allEvaluations.some(
+                    (e) => e.participantId === p.id && e.status === "enviada" && !e.replicated,
+                  ),
+              )
+              .map((p) => ({
+                participantId: p.id,
+                cycleId: p.cycleId,
+                employeeId: p.employeeId,
+                name: p.snapshot?.name,
+                client: p.snapshot?.client,
+                clientId: p.snapshot?.clientId,
+                post: p.snapshot?.post,
+              }));
+          })()
+        : [];
       res.json({
         organization: org?.name,
         user: safeUser(user),
         role,
         clients,
         posts,
+        clientPosts,
         employees,
         allocations,
+        employeeAccessDomain: role.globalScope && role.permissions.includes("employees")
+          ? settings?.employeeEmailDomain || ""
+          : "",
+        penaltyTypes: role.globalScope && role.permissions.includes("employees")
+          ? penaltyTypes
+          : [],
+        employeeActions: role.globalScope && role.permissions.includes("employees")
+          ? employeeActions
+          : [],
         participants,
         evaluations,
         seasons: seasons.map((s) => ({ ...s, result: undefined })),
-        cycles: await db.all("cycles"),
+        cycles,
         rankings,
+        unevaluatedAlert,
         users: role.permissions.includes("users")
-          ? (await db.all("users")).map(safeUser)
+          ? allUsers.map(safeUser)
           : [safeUser(user)],
         roles: role.permissions.includes("users")
-          ? await db.all("roles")
+          ? allRoles
           : [role],
         imports: role.permissions.includes("imports")
-          ? await db.all("imports")
+          ? imports
           : [],
         settings: role.permissions.includes("settings")
-          ? (await db.all("settings"))[0]
+          ? settings
           : null,
         audit: role.permissions.includes("settings")
-          ? (await db.all("audit"))
+          ? auditRows
               .sort((a, b) => b.date.localeCompare(a.date))
               .slice(0, 300)
           : [],
@@ -481,13 +777,264 @@ export function createApp(store: Store) {
   const tablePermission: Partial<Record<Table, string>> = {
     clients: "clients",
     posts: "clients",
+    clientPosts: "clients",
     employees: "employees",
     allocations: "employees",
+    penaltyTypes: "settings",
     seasons: "seasons",
     cycles: "seasons",
     users: "users",
     roles: "users",
   };
+  app.post(
+    "/api/employee-actions",
+    route(async (req, res) => {
+      const { db, user, role } = await context(req, "employees");
+      assert(role.globalScope, "Gestão de ocorrências reservada ao administrador", 403);
+      const input = z.object({
+        employeeId: z.uuid(),
+        type: z.enum(["penalty", "cycle_block", "season_suspension"]),
+        penaltyTypeId: z.string().default(""),
+        seasonId: z.uuid(),
+        cycleId: z.string().default(""),
+        reason: z.string().trim().min(3).max(1000),
+        attachment: z.object({
+          name: z.string().trim().min(1).max(180),
+          type: z.enum(["application/pdf", "image/png", "image/jpeg", "image/webp"]),
+          data: z.string().max(4_300_000),
+        }).optional(),
+      }).parse(req.body);
+      const result = await store.transaction(async () => {
+        await must(db, "employees", input.employeeId);
+        const season = await must(db, "seasons", input.seasonId);
+        assert(season.status !== "publicada", "A temporada já foi publicada");
+        let cycle: RecordData | undefined;
+        if (input.type === "cycle_block") {
+          assert(input.cycleId, "Selecione o ciclo");
+          cycle = await must(db, "cycles", input.cycleId);
+          assert(cycle.seasonId === season.id, "O ciclo não pertence à temporada");
+        }
+        let penaltyType: RecordData | undefined;
+        if (input.type === "penalty") {
+          assert(input.penaltyTypeId, "Selecione a penalidade");
+          penaltyType = await must(db, "penaltyTypes", input.penaltyTypeId);
+          assert(penaltyType.status === "ativo", "Esta penalidade está inativa");
+        }
+        if (input.attachment)
+          assert(input.attachment.data.startsWith("data:"), "Arquivo inválido");
+        const action = await db.put("employeeActions", {
+          id: id(),
+          employeeId: input.employeeId,
+          type: input.type,
+          penaltyTypeId: penaltyType?.id || "",
+          penaltyName: penaltyType?.name || "",
+          points: penaltyType?.points || 0,
+          seasonId: season.id,
+          cycleId: cycle?.id || null,
+          reason: input.reason,
+          attachment: input.attachment || null,
+          status: "ativo",
+          appliedAt: now(),
+          appliedBy: user.id,
+        });
+        await refreshParticipantEligibility(db, input.employeeId, season.id);
+        await audit(db, user.id, "aplicar_ocorrencia", action.id, { employeeId: input.employeeId, type: input.type });
+        return action;
+      });
+      res.json(result);
+    }),
+  );
+  app.post(
+    "/api/employee-actions/:id/revoke",
+    route(async (req, res) => {
+      const { db, user, role } = await context(req, "employees");
+      assert(role.globalScope, "Gestão de ocorrências reservada ao administrador", 403);
+      await store.transaction(async () => {
+        const action = await must(db, "employeeActions", String(req.params.id));
+        assert(action.status === "ativo", "Ocorrência já cancelada");
+        await db.put("employeeActions", { ...action, status: "cancelado", revokedAt: now(), revokedBy: user.id });
+        await refreshParticipantEligibility(db, action.employeeId, action.seasonId);
+        await audit(db, user.id, "cancelar_ocorrencia", action.id);
+      });
+      res.json({ ok: true });
+    }),
+  );
+  app.post(
+    "/api/employees/save",
+    route(async (req, res) => {
+      const { db, user, role } = await context(req, "employees");
+      assert(role.globalScope, "Gestão reservada a um perfil com acesso global", 403);
+      const input = z.object({
+        id: z.uuid().optional(),
+        name: z.string().trim().min(1).max(200),
+        cpf: z.string().transform(normalizeCpf).refine(validCpf, "CPF inválido"),
+        registration: z.string().trim().min(1).max(200),
+        role: z.string().trim().min(1).max(200),
+        admissionDate: z.iso.date(),
+        photo: z.string().max(2_800_000).refine(
+          (value) => !value || /^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(value),
+          "Envie uma foto PNG, JPEG ou WebP válida",
+        ).default(""),
+        status: z.enum(["ativo", "inativo", "licenca"]).default("ativo"),
+        clientId: z.string().default(""),
+        postId: z.string().default(""),
+        supervisorId: z.string().default(""),
+        allocationStart: z.iso.date().optional(),
+        newLocation: z.object({
+          clientName: z.string().trim().min(1).max(200),
+          segment: z.string().trim().max(100).default(""),
+          postName: z.string().trim().min(1).max(200),
+          code: z.string().trim().max(50).default(""),
+          address: z.string().trim().max(400).default(""),
+        }).optional(),
+      }).parse(req.body);
+      const key = input.id || id();
+      const old = input.id ? await must(db, "employees", input.id) : undefined;
+      const result = await store.transaction(async () => {
+        assert(
+          !(await db.all("employees")).some((employee) => employee.id !== key && employee.cpf === input.cpf),
+          "Já existe um colaborador com este CPF",
+          409,
+        );
+        let post: RecordData | undefined;
+        if (input.newLocation) {
+          assert(role.permissions.includes("clients"), "Seu perfil não pode criar clientes e postos", 403);
+          const client = await db.put("clients", {
+            id: id(),
+            name: input.newLocation.clientName,
+            cnpj: "",
+            segment: input.newLocation.segment,
+            responsible: "",
+            email: "",
+            phone: "",
+            status: "ativo",
+            createdAt: now(),
+            updatedAt: now(),
+          });
+          post = await db.put("posts", {
+            id: id(),
+            name: input.newLocation.postName,
+            code: input.newLocation.code,
+            address: input.newLocation.address,
+            status: "ativo",
+            createdAt: now(),
+            updatedAt: now(),
+          });
+          await db.put("clientPosts", {
+            id: id(),
+            clientId: client.id,
+            postId: post.id,
+            createdAt: now(),
+          });
+        } else if (input.postId) {
+          post = await must(db, "posts", input.postId);
+          assert(post.status === "ativo", "Selecione um posto ativo");
+          assert(input.clientId, "Selecione a empresa do colaborador");
+          assert(
+            (await db.all("clientPosts")).some(
+              (link) => link.clientId === input.clientId && link.postId === post!.id,
+            ),
+            "Este posto não está disponível para a empresa selecionada",
+          );
+        }
+        const assignedUser = input.supervisorId ? await must(db, "users", input.supervisorId) : undefined;
+        let saved = await db.put("employees", {
+          ...old,
+          id: key,
+          name: input.name,
+          cpf: input.cpf,
+          registration: input.registration,
+          role: input.role,
+          admissionDate: input.admissionDate,
+          photo: input.photo,
+          status: input.status,
+          createdAt: old?.createdAt || now(),
+          updatedAt: now(),
+        });
+        const currentAllocation = (await db.all("allocations")).find(
+          (allocation) => allocation.employeeId === key && !allocation.end,
+        );
+        const assignmentChanged = post && (
+          !currentAllocation ||
+          currentAllocation.postId !== post.id ||
+          (currentAllocation.supervisorId || "") !== input.supervisorId
+        );
+        let activeAllocation = currentAllocation;
+        if (saved.status !== "ativo" && currentAllocation) {
+          await db.put("allocations", { ...currentAllocation, end: today() });
+        } else if (assignmentChanged && post) {
+          const start = input.allocationStart || today();
+          assert(start <= today(), "Não é possível antecipar uma movimentação");
+          if (currentAllocation) {
+            assert(start >= currentAllocation.start, "Início anterior à alocação atual");
+            await db.put("allocations", { ...currentAllocation, end: start });
+          }
+          activeAllocation = await db.put("allocations", {
+            id: id(),
+            employeeId: key,
+            postId: post.id,
+            clientId: input.clientId,
+            supervisorId: input.supervisorId,
+            start,
+            end: null,
+          });
+        }
+        const accessPost = post || (activeAllocation ? await must(db, "posts", activeAllocation.postId) : undefined);
+        assert(accessPost, "Selecione o cliente e o posto do colaborador");
+        if (assignedUser) {
+          const assignedRole = await must(db, "roles", assignedUser.roleId);
+          assert(
+            assignedRole.permissions.includes("evaluate") && canSee(assignedUser, assignedRole, { id: accessPost.id, clientId: activeAllocation?.clientId || input.clientId, postId: accessPost.id }),
+            "O avaliador selecionado não possui acesso a este cliente ou posto",
+          );
+        }
+        const settings = (await db.all("settings"))[0];
+        const domain = String(settings?.employeeEmailDomain || "");
+        assert(domain, "Cadastre o domínio de acesso dos colaboradores em Configurações antes de continuar");
+        let employeeRole = (await db.all("roles")).find((item) => normalizedName(item.name) === "colaborador");
+        if (!employeeRole)
+          employeeRole = await db.put("roles", {
+            id: id(),
+            name: "Colaborador",
+            permissions: ["dashboard", "ranking"],
+            globalScope: false,
+          });
+        const users = await db.all("users");
+        const linkedUser = users.find((item) => item.id === old?.userId || item.employeeId === key);
+        let loginEmail = linkedUser?.email;
+        if (!loginEmail) {
+          const base = employeeLoginLocal(input.name);
+          loginEmail = `${base}${domain}`;
+          if (users.some((item) => item.email === loginEmail)) loginEmail = `${base}.${input.cpf.slice(-4)}${domain}`;
+          let suffix = 2;
+          while (users.some((item) => item.email === loginEmail)) loginEmail = `${base}.${input.cpf.slice(-4)}.${suffix++}${domain}`;
+        }
+        const account = await db.put("users", {
+          ...linkedUser,
+          id: linkedUser?.id || id(),
+          name: input.name,
+          email: loginEmail,
+          passwordHash: linkedUser?.passwordHash || passwordHash(input.cpf),
+          mustChangePassword: linkedUser ? linkedUser.mustChangePassword : true,
+          roleId: employeeRole.id,
+          employeeId: key,
+          status: saved.status === "ativo" ? "ativo" : "inativo",
+          clientIds: [activeAllocation?.clientId || input.clientId],
+          postIds: [accessPost.id],
+          createdAt: linkedUser?.createdAt || now(),
+          updatedAt: now(),
+        });
+        saved = await db.put("employees", { ...saved, userId: account.id, loginEmail });
+        await syncEmployeeParticipants(db, key);
+        await audit(db, user.id, old ? "editar_colaborador" : "criar_colaborador", `employees/${key}`, {
+          postId: post?.id || "",
+          userId: account.id,
+        });
+        return saved;
+      });
+      res.json(result);
+    }),
+  );
   app.post(
     "/api/records/:table",
     route(async (req, res) => {
@@ -507,9 +1054,15 @@ export function createApp(store: Store) {
       const old = req.body.id ? await must(db, table, key) : undefined;
       const input = schemas[table]!.parse(req.body) as any;
       const result = await store.transaction(async () => {
-        if (table === "posts") await must(db, "clients", input.clientId);
+        if (table === "posts") {
+          const duplicate = (await db.all("posts")).find(
+            (item) => item.id !== key && normalizedName(item.name) === normalizedName(input.name),
+          );
+          assert(!duplicate, "Já existe um posto global com este nome", 409);
+        }
         if (table === "allocations") {
           const employee = await must(db, "employees", input.employeeId);
+          await must(db, "clients", input.clientId);
           const post = await must(db, "posts", input.postId);
           assert(
             employee.status === "ativo" && post.status === "ativo",
@@ -520,6 +1073,12 @@ export function createApp(store: Store) {
             "Não é possível antecipar uma movimentação",
           );
           assert(!old, "Movimentações são históricas; crie uma nova");
+          assert(
+            (await db.all("clientPosts")).some(
+              (link) => link.clientId === input.clientId && link.postId === input.postId,
+            ),
+            "Este posto não está disponível para a empresa selecionada",
+          );
           if (input.supervisorId) await must(db, "users", input.supervisorId);
           for (const a of await db.all("allocations"))
             if (a.employeeId === employee.id && !a.end) {
@@ -529,7 +1088,6 @@ export function createApp(store: Store) {
               );
               await db.put("allocations", { ...a, end: input.start });
             }
-          input.clientId = post.clientId;
           input.end = null;
         }
         if (table === "seasons") {
@@ -569,9 +1127,26 @@ export function createApp(store: Store) {
         if (table === "users") {
           const targetRole = await must(db, "roles", input.roleId);
           for (const c of input.clientIds) await must(db, "clients", c);
-          for (const p of input.postIds) await must(db, "posts", p);
+          const availableLinks = await db.all("clientPosts");
+          for (const postId of input.postIds) {
+            await must(db, "posts", postId);
+            assert(
+              availableLinks.some((link) => link.postId === postId && input.clientIds.includes(link.clientId)),
+              "Todo posto precisa estar disponível em uma empresa permitida",
+            );
+          }
+          const profile = String(targetRole.name).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+          assert(profile !== "colaborador", "O acesso de colaborador é criado automaticamente pelo cadastro do colaborador");
+          if (profile === "cliente") {
+            assert(input.clientIds.length === 1, "O perfil Cliente deve ter exatamente uma empresa vinculada");
+            // Cliente sempre representa a empresa inteira; posto é restrição exclusiva
+            // para perfis operacionais como Supervisor e Fiscal.
+            input.postIds = [];
+          }
+          if (["supervisor", "fiscal"].includes(profile))
+            assert(input.clientIds.length >= 1, "Vincule ao menos uma empresa para este perfil");
           assert(
-            !(
+          !(
               !targetRole.globalScope &&
               !input.clientIds.length &&
               !input.postIds.length
@@ -600,6 +1175,39 @@ export function createApp(store: Store) {
           createdAt: old?.createdAt || now(),
           updatedAt: now(),
         });
+        if (table === "clients") {
+          const selectedPostIds = new Set<string>(input.postIds || []);
+          for (const postId of selectedPostIds) await must(db, "posts", postId);
+          for (const link of (await db.all("clientPosts")).filter((item) => item.clientId === saved.id))
+            if (!selectedPostIds.has(link.postId)) {
+              assert(
+                !(await db.all("allocations")).some(
+                  (allocation) => allocation.clientId === saved.id && allocation.postId === link.postId && !allocation.end,
+                ),
+                "Este posto possui colaboradores vinculados. Movimente-os antes de removê-lo da empresa",
+                409,
+              );
+              await db.remove("clientPosts", link.id);
+            }
+          const currentLinks = await db.all("clientPosts");
+          for (const postId of selectedPostIds)
+            if (!currentLinks.some((link) => link.clientId === saved.id && link.postId === postId))
+              await db.put("clientPosts", { id: id(), clientId: saved.id, postId, createdAt: now() });
+        }
+        if (table === "allocations")
+          await syncEmployeeParticipants(db, saved.employeeId);
+        if (table === "posts" || table === "clients") {
+          const affectedPostIds = table === "posts"
+            ? new Set([saved.id])
+            : new Set((await db.all("clientPosts")).filter((link) => link.clientId === saved.id).map((link) => link.postId));
+          const affectedEmployeeIds = new Set(
+            (await db.all("allocations"))
+              .filter((allocation) => affectedPostIds.has(allocation.postId))
+              .map((allocation) => allocation.employeeId),
+          );
+          for (const employeeId of affectedEmployeeIds)
+            await syncEmployeeParticipants(db, employeeId);
+        }
         if (table === "users" && old)
           for (const s of await db.all("sessions"))
             if (s.userId === key && key !== user.id)
@@ -608,6 +1216,120 @@ export function createApp(store: Store) {
         return table === "users" ? safeUser(saved) : saved;
       });
       res.json(result);
+    }),
+  );
+  app.post(
+    "/api/records/:table/:id/delete",
+    route(async (req, res) => {
+      const table = z.enum(["clients", "employees", "seasons"]).parse(req.params.table) as
+        | "clients"
+        | "employees"
+        | "seasons";
+      const permission = table === "clients" ? "clients" : table === "employees" ? "employees" : "seasons";
+      const { db, user, role } = await context(req, permission);
+      assert(role.globalScope, "Exclusão reservada ao administrador", 403);
+      z.object({ confirm: z.literal(true) }).parse(req.body);
+      const target = await must(db, table, z.uuid().parse(req.params.id));
+      const summary = await store.transaction(async () => {
+        const records = await db.allMany([
+          "clients", "posts", "clientPosts", "employees", "allocations", "users", "roles",
+          "sessions", "seasons", "cycles", "participants", "evaluations", "employeeActions",
+        ]);
+        let removedEvaluations = 0;
+        let removedParticipants = 0;
+        const removeParticipants = async (participantRows: RecordData[]) => {
+          const participantIds = new Set(participantRows.map((item) => item.id));
+          for (const evaluation of records.evaluations!.filter((item) => participantIds.has(item.participantId))) {
+            await db.remove("evaluations", evaluation.id);
+            removedEvaluations++;
+          }
+          for (const participant of participantRows) {
+            await db.remove("participants", participant.id);
+            removedParticipants++;
+          }
+        };
+
+        if (table === "employees") {
+          const participantRows = records.participants!.filter((item) => item.employeeId === target.id);
+          await removeParticipants(participantRows);
+          for (const action of records.employeeActions!.filter((item) => item.employeeId === target.id))
+            await db.remove("employeeActions", action.id);
+          for (const allocation of records.allocations!.filter((item) => item.employeeId === target.id))
+            await db.remove("allocations", allocation.id);
+          for (const account of records.users!.filter((item) => item.employeeId === target.id)) {
+            for (const session of records.sessions!.filter((item) => item.userId === account.id))
+              await db.remove("sessions", session.id);
+            const authored = records.evaluations!.some(
+              (item) => item.evaluatorId === account.id && !participantRows.some((participant) => participant.id === item.participantId),
+            );
+            if (authored)
+              await db.put("users", { ...account, employeeId: null, status: "inativo", updatedAt: now() });
+            else await db.remove("users", account.id);
+          }
+          for (const season of records.seasons!)
+            if (season.result?.some((item: RecordData) => item.employeeId === target.id))
+              await db.put("seasons", {
+                ...season,
+                result: season.result.filter((item: RecordData) => item.employeeId !== target.id),
+                updatedAt: now(),
+              });
+          await db.remove("employees", target.id);
+        }
+
+        if (table === "clients") {
+          const allocationRows = records.allocations!.filter((item) => item.clientId === target.id);
+          const allocationIds = new Set(allocationRows.map((item) => item.id));
+          const participantRows = records.participants!.filter(
+            (item) => item.snapshot?.clientId === target.id || allocationIds.has(item.allocationId),
+          );
+          await removeParticipants(participantRows);
+          for (const allocation of allocationRows) await db.remove("allocations", allocation.id);
+          for (const link of records.clientPosts!.filter((item) => item.clientId === target.id))
+            await db.remove("clientPosts", link.id);
+          for (const post of records.posts!.filter((item) => item.clientId === target.id))
+            await db.put("posts", { ...post, clientId: null, updatedAt: now() });
+          for (const account of records.users!.filter((item) => item.clientIds?.includes(target.id))) {
+            const clientIds = account.clientIds.filter((clientId: string) => clientId !== target.id);
+            const allowedPostIds = new Set(
+              records.clientPosts!
+                .filter((link) => clientIds.includes(link.clientId))
+                .map((link) => link.postId),
+            );
+            const postIds = (account.postIds || []).filter((postId: string) => allowedPostIds.has(postId));
+            const accountRole = records.roles!.find((item) => item.id === account.roleId);
+            await db.put("users", {
+              ...account,
+              clientIds,
+              postIds,
+              status: !accountRole?.globalScope && !clientIds.length ? "inativo" : account.status,
+              updatedAt: now(),
+            });
+          }
+          for (const season of records.seasons!)
+            if (season.result?.some((item: RecordData) => item.clientId === target.id))
+              await db.put("seasons", {
+                ...season,
+                result: season.result.filter((item: RecordData) => item.clientId !== target.id),
+                updatedAt: now(),
+              });
+          await db.remove("clients", target.id);
+        }
+
+        if (table === "seasons") {
+          const cycleRows = records.cycles!.filter((item) => item.seasonId === target.id);
+          const cycleIds = new Set(cycleRows.map((item) => item.id));
+          await removeParticipants(records.participants!.filter((item) => cycleIds.has(item.cycleId)));
+          for (const action of records.employeeActions!.filter((item) => item.seasonId === target.id))
+            await db.remove("employeeActions", action.id);
+          for (const cycle of cycleRows) await db.remove("cycles", cycle.id);
+          await db.remove("seasons", target.id);
+        }
+
+        const result = { table, id: target.id, name: target.name, removedParticipants, removedEvaluations };
+        await audit(db, user.id, `excluir_${table}`, `${table}/${target.id}`, result);
+        return result;
+      });
+      res.json(summary);
     }),
   );
   app.post(
@@ -632,6 +1354,19 @@ export function createApp(store: Store) {
     }),
   );
   app.post(
+    "/api/settings/employee-access",
+    route(async (req, res) => {
+      const { db, user } = await context(req, "settings");
+      const parsed = z.object({ domain: z.string().trim().min(3).max(120) }).parse(req.body);
+      const domain = (parsed.domain.startsWith("@") ? parsed.domain : `@${parsed.domain}`).toLowerCase();
+      assert(/^@[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/i.test(domain), "Informe um domínio válido, como @empresa.com.br");
+      const settings = (await db.all("settings"))[0];
+      await db.put("settings", { ...settings, employeeEmailDomain: domain, updatedAt: now() });
+      await audit(db, user.id, "alterar_dominio_colaboradores", settings.id, { domain });
+      res.json({ domain });
+    }),
+  );
+  app.post(
     "/api/seasons/:id/:action",
     route(async (req, res) => {
       const { db, user } = await context(req, "seasons");
@@ -644,19 +1379,27 @@ export function createApp(store: Store) {
         if (action === "activate") {
           assert(season.status === "planejada", "Temporada já iniciada");
           const settings = (await db.all("settings"))[0];
-          assert(
-            !settings.rules.provisional,
-            "Revise e confirme o regulamento nas Configurações",
-          );
-          assert(
-            cycles.length >= settings.rules.minimumCycles,
-            "Cadastre a quantidade mínima de ciclos do regulamento",
-          );
+          const confirmation = z.object({ confirmRules: z.boolean().default(false) }).parse(req.body || {});
+          assert(cycles.length > 0, "Cadastre pelo menos um ciclo antes de iniciar a temporada");
+          let rules = settings.rules;
+          let ruleVersion = settings.version;
+          if (rules.provisional) {
+            assert(confirmation.confirmRules, "Confirme o regulamento atual para iniciar a temporada");
+            rules = { ...rules, provisional: false };
+            ruleVersion += 1;
+            await db.put("settings", {
+              ...settings,
+              rules,
+              version: ruleVersion,
+              updatedAt: now(),
+            });
+            await audit(db, user.id, "confirmar_regulamento", settings.id, { version: ruleVersion });
+          }
           await db.put("seasons", {
             ...season,
             status: "ativa",
-            rules: settings.rules,
-            ruleVersion: settings.version,
+            rules,
+            ruleVersion,
             activatedAt: now(),
           });
         } else if (action === "close") {
@@ -685,29 +1428,43 @@ export function createApp(store: Store) {
           assert(cycle.status === "planejado", "Ciclo já iniciado");
           const employees = await db.all("employees");
           const allocations = await db.all("allocations");
+          const employeeActions = (await db.all("employeeActions")).filter(
+            (action) => action.seasonId === season.id && action.status === "ativo",
+          );
           let count = 0;
-          for (const e of employees.filter((e) => e.status === "ativo")) {
+          for (const e of employees.filter(
+            (e) => e.status === "ativo" && hasMinimumTenure(e.admissionDate),
+          )) {
             const a = allocations
               .filter(
                 (a) =>
                   a.employeeId === e.id &&
-                  a.start <= cycle.start &&
+                  a.start <= cycle.end &&
                   (!a.end || a.end > cycle.start),
               )
               .sort((a, b) => b.start.localeCompare(a.start))[0];
             if (!a) continue;
             const post = await must(db, "posts", a.postId);
-            const client = await must(db, "clients", post.clientId);
+            const client = await must(db, "clients", a.clientId);
             if (client.status !== "ativo" || post.status !== "ativo") continue;
+            const blocking = employeeActions.find(
+              (action) => action.employeeId === e.id &&
+                (action.type === "season_suspension" ||
+                  (action.type === "cycle_block" && action.cycleId === cycle.id)),
+            );
             await db.put("participants", {
               id: id(),
               cycleId: cycle.id,
               seasonId: season.id,
               employeeId: e.id,
               allocationId: a.id,
-              eligible: true,
+              eligible: !blocking,
+              ineligibility: blocking
+                ? { actionId: blocking.id, type: blocking.type, reason: blocking.reason }
+                : null,
               snapshot: {
                 name: e.name,
+                photo: e.photo || "",
                 registration: e.registration,
                 role: e.role,
                 client: client.name,
@@ -717,13 +1474,22 @@ export function createApp(store: Store) {
                 supervisorId: a.supervisorId,
               },
             });
-            count++;
+            if (!blocking) count++;
           }
-          assert(count, "Nenhuma alocação elegível no início do ciclo");
+          assert(count, "Nenhuma alocação elegível durante o período do ciclo");
           await db.put("cycles", { ...cycle, status: "ativo" });
         } else if (req.params.action === "close") {
           assert(cycle.status === "ativo", "Ciclo não está ativo");
+          // Replica notas para avaliadores que não avaliaram dentro do prazo
+          await replicateMissingEvaluations(db, cycle.id);
           await db.put("cycles", { ...cycle, status: "encerrado" });
+        } else if (req.params.action === "reopen") {
+          assert(cycle.status === "encerrado", "Somente ciclos encerrados podem ser reabertos");
+          assert(!season.result, "Resultados publicados não podem ser reabertos");
+          assert(cycle.deadline >= today(), "O prazo deste ciclo já terminou");
+          await db.put("cycles", { ...cycle, status: "ativo", reopenedAt: now(), reopenedBy: user.id });
+          for (const employee of await db.all("employees"))
+            await syncEmployeeParticipants(db, employee.id);
         } else throw new HttpError(404, "Ação desconhecida");
         await audit(db, user.id, String(req.params.action), cycle.id);
       });
@@ -762,6 +1528,23 @@ export function createApp(store: Store) {
           403,
         );
         assert(participant.eligible !== false, "Participante inelegível");
+        // Supervisores/Fiscais: verificar se têm acesso ao participante
+        if (!role.globalScope && role.permissions.includes("evaluate")) {
+          const profile = normalizedName(role.name);
+          if (profile !== "cliente") {
+            const assignedEvaluator = participant.snapshot?.supervisorId;
+            assert(
+              !assignedEvaluator || assignedEvaluator === user.id,
+              "Este colaborador está atribuído a outro avaliador",
+              403,
+            );
+          }
+        }
+        const participantEvaluations = (await db.all("evaluations")).filter(
+          (evaluation) => evaluation.participantId === participant.id,
+        );
+        // Permite avaliação dupla: cada avaliador submete a sua própria nota.
+        // O bloqueio de duplicata por mesmo avaliador fica abaixo (existing check).
         const cycle = await must(db, "cycles", participant.cycleId);
         const season = await must(db, "seasons", cycle.seasonId);
         assert(
@@ -776,7 +1559,7 @@ export function createApp(store: Store) {
           season.rules.allowLate || today() <= cycle.deadline,
           "Prazo de avaliação encerrado",
         );
-        const existing = (await db.all("evaluations")).find(
+        const existing = participantEvaluations.find(
           (e) =>
             e.participantId === participant.id && e.evaluatorId === user.id,
         );
@@ -975,7 +1758,7 @@ export function createApp(store: Store) {
           .replace(/[\u0300-\u036f]/g, "")
           .toLowerCase()
           .trim();
-      const required = ["matricula", "nome", "funcao", "cliente", "posto"];
+      const required = ["matricula", "cpf", "nome", "funcao", "cliente", "posto"];
       const mapping =
         input.mapping ||
         Object.fromEntries(
@@ -987,6 +1770,7 @@ export function createApp(store: Store) {
       if (required.some((k) => !headers.includes(mapping[k])))
         return res.json({ headers, mapping, needsMapping: true });
       const seen = new Set<string>();
+      const seenCpf = new Set<string>();
       const parsed = rows
         .filter((r) => r.some(Boolean))
         .map((r, index) => {
@@ -999,6 +1783,10 @@ export function createApp(store: Store) {
           if (seen.has(data.matricula))
             errors.push("Matrícula duplicada no arquivo");
           seen.add(data.matricula);
+          data.cpf = normalizeCpf(data.cpf);
+          if (!validCpf(data.cpf)) errors.push("CPF inválido");
+          if (seenCpf.has(data.cpf)) errors.push("CPF duplicado no arquivo");
+          seenCpf.add(data.cpf);
           if (Object.values(data).some((v) => v.length > 200))
             errors.push("Campo excede 200 caracteres");
           return { line: index + 2, ...data, errors };
@@ -1032,9 +1820,18 @@ export function createApp(store: Store) {
         const imp = await must(db, "imports", String(req.params.id));
         assert(imp.status === "previa", "Importação já processada", 409);
         assert(imp.errors === 0, "Corrija os erros e importe novamente");
-        const clients = await db.all("clients"),
-          posts = await db.all("posts"),
-          employees = await db.all("employees");
+        const clients = await db.all("clients"), posts = await db.all("posts"),
+          employees = await db.all("employees"), allocations = await db.all("allocations"),
+          users = await db.all("users"), roles = await db.all("roles"),
+          clientPosts = await db.all("clientPosts");
+        const settings = (await db.all("settings"))[0];
+        const domain = String(settings?.employeeEmailDomain || "");
+        assert(domain, "Cadastre o domínio de acesso dos colaboradores em Configurações antes de importar");
+        let employeeRole = roles.find((item) => normalizedName(item.name) === "colaborador");
+        if (!employeeRole) {
+          employeeRole = await db.put("roles", { id: id(), name: "Colaborador", permissions: ["dashboard", "ranking"], globalScope: false });
+          roles.push(employeeRole);
+        }
         for (const r of imp.rows) {
           let client = clients.find(
             (c) => c.name.toLowerCase() === r.cliente.toLowerCase(),
@@ -1053,14 +1850,11 @@ export function createApp(store: Store) {
             clients.push(client);
           }
           let post = posts.find(
-            (p) =>
-              p.clientId === client.id &&
-              p.name.toLowerCase() === r.posto.toLowerCase(),
+            (p) => p.name.toLowerCase() === r.posto.toLowerCase(),
           );
           if (!post) {
             post = await db.put("posts", {
               id: id(),
-              clientId: client.id,
               name: r.posto,
               status: "ativo",
               code: "",
@@ -1068,23 +1862,30 @@ export function createApp(store: Store) {
             });
             posts.push(post);
           }
+          if (!clientPosts.some((link) => link.clientId === client!.id && link.postId === post!.id)) {
+            const link = await db.put("clientPosts", { id: id(), clientId: client.id, postId: post.id, createdAt: now(), importId: imp.id });
+            clientPosts.push(link);
+          }
           let employee = employees.find((e) => e.registration === r.matricula);
+          assert(!employees.some((item) => item.id !== employee?.id && item.cpf === r.cpf), `CPF já cadastrado: ${r.cpf}`, 409);
           employee = await db.put("employees", {
             ...employee,
             id: employee?.id || id(),
             name: r.nome,
+            cpf: r.cpf,
             registration: r.matricula,
             role: r.funcao,
             status: employee?.status || "ativo",
             admissionDate: employee?.admissionDate || today(),
           });
-          const current = (await db.all("allocations")).find(
+          if (!employees.some((item) => item.id === employee!.id)) employees.push(employee);
+          const current = allocations.find(
             (a) => a.employeeId === employee!.id && !a.end,
           );
           if (current?.postId !== post.id) {
             if (current)
               await db.put("allocations", { ...current, end: today() });
-            await db.put("allocations", {
+            const allocation = await db.put("allocations", {
               id: id(),
               employeeId: employee.id,
               postId: post.id,
@@ -1094,7 +1895,27 @@ export function createApp(store: Store) {
               supervisorId: "",
               importId: imp.id,
             });
+            allocations.push(allocation);
           }
+          const linkedUser = users.find((item) => item.id === employee!.userId || item.employeeId === employee!.id);
+          let loginEmail = linkedUser?.email;
+          if (!loginEmail) {
+            const base = employeeLoginLocal(r.nome);
+            loginEmail = `${base}${domain}`;
+            if (users.some((item) => item.email === loginEmail)) loginEmail = `${base}.${r.cpf.slice(-4)}${domain}`;
+            let suffix = 2;
+            while (users.some((item) => item.email === loginEmail)) loginEmail = `${base}.${r.cpf.slice(-4)}.${suffix++}${domain}`;
+          }
+          const account = await db.put("users", {
+            ...linkedUser, id: linkedUser?.id || id(), name: r.nome, email: loginEmail,
+            passwordHash: linkedUser?.passwordHash || passwordHash(r.cpf),
+            mustChangePassword: linkedUser ? linkedUser.mustChangePassword : true,
+            roleId: employeeRole.id, employeeId: employee.id, status: "ativo",
+            clientIds: [client.id], postIds: [post.id], createdAt: linkedUser?.createdAt || now(), updatedAt: now(),
+          });
+          if (!linkedUser) users.push(account);
+          employee = await db.put("employees", { ...employee, userId: account.id, loginEmail });
+          await syncEmployeeParticipants(db, employee.id);
         }
         await db.put("imports", {
           ...imp,
@@ -1115,7 +1936,7 @@ export function createApp(store: Store) {
       const { db, user, role } = await context(req, "reports");
       const kind = String(req.params.kind);
       assert(
-        ["employees", "evaluations", "pending", "ranking"].includes(kind),
+        ["clients", "employees", "evaluations", "pending", "ranking"].includes(kind),
         "Relatório inválido",
       );
       const seasonId = String(req.query.season || ""),
@@ -1127,6 +1948,32 @@ export function createApp(store: Store) {
         ps.some((p) => p.id === e.participantId),
       );
       let rows: RecordData[] = [];
+      if (kind === "clients") {
+        const posts = await db.all("posts");
+        const links = await db.all("clientPosts");
+        const allocations = await db.all("allocations");
+        rows = (await db.all("clients"))
+          .filter(
+            (client) =>
+              role.globalScope ||
+              user.clientIds?.includes(client.id) ||
+              links.some((link) =>
+                link.clientId === client.id && user.postIds?.includes(link.postId),
+              ),
+          )
+          .map((client) => {
+            const postIds = new Set(links.filter((link) => link.clientId === client.id).map((link) => link.postId));
+            return {
+              ...client,
+              posts: posts.filter((post) => postIds.has(post.id)).length,
+              employees: new Set(
+                allocations
+                  .filter((allocation) => !allocation.end && allocation.clientId === client.id && postIds.has(allocation.postId))
+                  .map((allocation) => allocation.employeeId),
+              ).size,
+            };
+          });
+      }
       if (kind === "employees") {
         const allocations = await db.all("allocations"),
           posts = await db.all("posts"),
@@ -1184,6 +2031,9 @@ export function createApp(store: Store) {
       const sheet = workbook.addWorksheet("Clube de Talentos");
       sheet.columns = [
         { header: "Nome", key: "name", width: 32 },
+        { header: "CNPJ", key: "cnpj", width: 22 },
+        { header: "Segmento", key: "segment", width: 20 },
+        { header: "Responsável", key: "responsible", width: 25 },
         { header: "Matrícula", key: "registration", width: 18 },
         { header: "Cliente", key: "client", width: 30 },
         { header: "Posto", key: "post", width: 25 },
@@ -1212,7 +2062,7 @@ export function createApp(store: Store) {
         fgColor: { argb: "FF1B6EF3" },
       };
       sheet.views = [{ state: "frozen", ySplit: 1 }];
-      sheet.autoFilter = { from: "A1", to: "J1" };
+      sheet.autoFilter = { from: "A1", to: "N1" };
       res.setHeader(
         "Content-Type",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

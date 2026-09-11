@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api, dateLabel, useData, type Row } from "./state";
 import {
   Heading,
@@ -11,18 +12,26 @@ import {
   type Field,
   type Column,
 } from "./ui";
+import { EmployeeEditor } from "../components/employees/EmployeeEditor";
+import { UserEditor } from "../components/users/UserEditor";
 const active = [
   { value: "ativo", label: "Ativo" },
   { value: "inativo", label: "Inativo" },
 ];
 export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
   const { data, refresh, notify } = useData();
-  const [tab, setTab] = useState(kind);
+  const [params] = useSearchParams();
+  const requestedTab = params.get("tab");
+  const allowedTabs = kind === "clients" ? ["clients", "posts"] : kind === "employees" ? ["employees", "allocations"] : ["users", "roles"];
+  const [tab, setTab] = useState(requestedTab && allowedTabs.includes(requestedTab) ? requestedTab : kind);
   const [editing, setEditing] = useState<Row | undefined>();
   const [creating, setCreating] = useState(false);
   const [detail, setDetail] = useState<Row>();
   const options = (rows: Row[]) =>
     rows.map((r) => ({ value: r.id, label: r.name }));
+  useEffect(() => {
+    if (requestedTab && allowedTabs.includes(requestedTab)) setTab(requestedTab);
+  }, [requestedTab, kind]);
   const permission =
     kind === "employees"
       ? "employees"
@@ -39,11 +48,11 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
       { key: "responsible", label: "Responsável", required: false },
       { key: "email", label: "E-mail", type: "email", required: false },
       { key: "phone", label: "Telefone", required: false },
+      { key: "postIds", label: "Postos desta empresa", type: "multi", options: options(data.posts), required: false, hint: "Escolha os postos globais que existem nesta empresa." },
       { key: "status", label: "Status", options: active },
     ],
     posts: [
       { key: "name", label: "Nome do posto" },
-      { key: "clientId", label: "Cliente", options: options(data.clients) },
       { key: "code", label: "Código", required: false },
       { key: "address", label: "Endereço", required: false },
       { key: "status", label: "Status", options: active },
@@ -66,12 +75,20 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
         options: options(data.employees),
       },
       {
+        key: "clientId",
+        label: "Empresa",
+        options: options(data.clients),
+        hint: "Empresa onde o colaborador trabalhará neste vínculo.",
+        clears: ["postId"],
+      },
+      {
         key: "postId",
         label: "Posto",
-        options: data.posts.map((p) => ({
+        options: (value) => data.posts.filter((p) => p.clientIds?.includes(value.clientId)).map((p) => ({
           value: p.id,
-          label: `${data.clients.find((c) => c.id === p.clientId)?.name} / ${p.name}`,
+          label: p.name,
         })),
+        hint: "Primeiro escolha a empresa. Aqui aparecem somente os postos habilitados nela.",
       },
       { key: "start", label: "Início da alocação", type: "date" },
       {
@@ -138,7 +155,7 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
     employees: "Colaboradores",
     clients: "Clientes",
     posts: "Postos",
-    allocations: "Alocações e movimentações",
+    allocations: "Vínculos dos colaboradores",
     users: "Usuários e Acessos",
     roles: "Perfis e permissões",
   };
@@ -149,7 +166,11 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
     const p = data.posts.find((p) => p.id === (r.postId || a?.postId));
     return {
       ...r,
-      client: data.clients.find((c) => c.id === (r.clientId || p?.clientId))
+      clientId: r.clientId || a?.clientId || "",
+      postId: r.postId || a?.postId || "",
+      supervisorId: r.supervisorId || a?.supervisorId || "",
+      allocationStart: r.allocationStart || a?.start || "",
+      client: data.clients.find((c) => c.id === (r.clientId || a?.clientId))
         ?.name,
       post: p?.name,
       employee: data.employees.find((e) => e.id === r.employeeId)?.name,
@@ -170,7 +191,7 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
     ],
     posts: [
       { key: "name", label: "Posto" },
-      { key: "client", label: "Cliente" },
+      { key: "clients", label: "Empresas", render: (r) => data.clients.filter((client) => r.clientIds?.includes(client.id)).map((client) => client.name).join(", ") || "Ainda não utilizado" },
       { key: "code", label: "Código" },
       { key: "address", label: "Localização" },
       {
@@ -238,7 +259,9 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
       <Heading
         title={title[current]}
         description={
-          kind === "employees"
+          current === "allocations"
+            ? "Um vínculo informa em qual empresa e posto o colaborador trabalha. Ao movimentá-lo, o histórico anterior é preservado."
+            : kind === "employees"
             ? "Gerencie pessoas, vínculos e histórico de movimentações."
             : kind === "clients"
               ? "Organize os clientes e os postos onde sua equipe atua."
@@ -257,6 +280,14 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
           />
         )}
       </Heading>
+      {kind === "users" && (
+        <div className="photo-summary">
+          <div className="photo-stat"><span><strong>{data.users.filter(u => u.status === 'ativo').length}</strong><small>Usuários ativos</small></span></div>
+          <div className="photo-stat"><span><strong>{data.users.filter(u => u.status !== 'ativo').length}</strong><small>Usuários inativos</small></span></div>
+          <div className="photo-stat green"><span><strong>{data.roles.length}</strong><small>Perfis de acesso</small></span></div>
+          <div className="photo-stat"><span><strong>{data.audit.filter(a => a.action === 'login').length}</strong><small>Acessos registrados</small></span></div>
+        </div>
+      )}
       <div className="tabs">
         {tabs.map((t) => (
           <button
@@ -279,15 +310,46 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
                 Ver perfil
               </button>
             )}
-            {editable && current !== "allocations" && (
+            {editable && current !== "allocations" && !(current === "users" && r.employeeId) && (
               <button className="text-button" onClick={() => setEditing(r)}>
                 Editar
               </button>
             )}
+            {current === "users" && r.employeeId && <span className="muted">Gerenciado no colaborador</span>}
           </>
         )}
       />
-      {(creating || editing) && (
+      {(creating || editing) && current === "employees" && (
+        <EmployeeEditor
+          initial={editing}
+          clients={data.clients}
+          posts={data.posts}
+          users={data.users.filter(user => data.roles.find(role => role.id === user.roleId)?.permissions?.includes("evaluate"))}
+          employeeDomain={data.employeeAccessDomain}
+          canCreateLocation={data.role.permissions.includes("clients")}
+          onClose={() => { setEditing(undefined); setCreating(false); }}
+          onSave={async value => {
+            const saved = await api("/employees/save", value);
+            await refresh();
+            notify(`Colaborador salvo. Login: ${saved.loginEmail}`);
+          }}
+        />
+      )}
+      {(creating || editing) && current !== "employees" && (
+        current === "users" ? (
+          <UserEditor
+            initial={editing}
+            roles={data.roles}
+            clients={data.clients}
+            posts={data.posts}
+            onClose={() => { setEditing(undefined); setCreating(false); }}
+            onSave={async value => {
+              await api("/records/users", value);
+              await refresh();
+              notify("Usuário e abrangência salvos.");
+            }}
+          />
+        ) : (
         <Editor
           title={editing ? "Editar registro" : "Novo registro"}
           fields={fields[current]}
@@ -314,6 +376,7 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
             notify("Registro salvo.");
           }}
         />
+        )
       )}
       {detail && (
         <Modal title={detail.name} onClose={() => setDetail(undefined)}>

@@ -68,16 +68,22 @@ O servidor escuta apenas em 127.0.0.1 por padrão. Para uso real via celular/red
 
 O frontend continua usando a mesma API. A mudança é no adaptador de banco do backend. A autenticação permanece no backend desta aplicação; a migração não substitui automaticamente por Supabase Auth.
 
-1. Faça backup do SQLite e pare as gravações.
-2. Crie um projeto Supabase e obtenha a conexão PostgreSQL para o backend. Use conexão direta ou session pooler, não transaction pooler.
-3. No diretório `backend`, configure `DATABASE_URL`, `SQLITE_PATH` e `CONFIRM_MIGRATION=yes` no ambiente (ou `.env`).
-4. Execute `npm run migrate:supabase`. O destino precisa estar vazio. A cópia usa uma transação, preserva IDs, hashes de senha, alocações, snapshots e resultados, e confere a quantidade por tabela. Sessões não são migradas.
-5. Inicie o backend com `DATABASE_URL`, `NODE_ENV=production`, `APP_ORIGIN=https://seu-dominio` e HTTPS no proxy de entrada. Os usuários fazem login novamente.
-6. Confira os dados, permissões, uma consulta histórica e um fluxo de avaliação antes de liberar acesso. Até essa validação, conserve o SQLite original sem novas gravações.
+1. Crie o projeto no Supabase e guarde com segurança a senha do banco definida durante a criação.
+2. No painel, abra **Connect → Session pooler → URI**. Para um servidor local em rede IPv4, use a porta `5432`. Este projeto recusa o Transaction pooler da porta `6543`, pois ele é incompatível com o fluxo transacional usado aqui.
+3. Abra o **SQL Editor** do Supabase e execute `supabase/migrations/20260909000000_clube_schema.sql`. As tabelas serão criadas no schema privado `clube`, sem exposição pela Data API.
+4. Copie `backend/.env.supabase.example` para `backend/.env` e substitua `DATABASE_URL` pela URI copiada. Se a senha contiver caracteres reservados em URL, use a versão codificada na URI. O arquivo `.env` é ignorado pelo Git.
+5. Execute `npm run supabase:check`. O resultado deve informar PostgreSQL acessível e listar as contagens das tabelas.
+6. Se já houver dados no SQLite, faça backup, pare as gravações, habilite temporariamente `SQLITE_PATH` e `CONFIRM_MIGRATION=yes` no `.env` e execute `npm run supabase:migrate`. O destino deve estar sem registros. A cópia usa uma transação, preserva IDs, hashes de senha, alocações, snapshots e resultados, e confere a quantidade por tabela. Sessões não são migradas.
+7. Remova `CONFIRM_MIGRATION` depois da cópia, inicie com `npm start` e confira `/api/health`: o campo `database` deve retornar `postgres`.
+8. Confira login, permissões, histórico e um fluxo completo de avaliação antes de liberar o uso. Até essa validação, conserve o SQLite original sem novas gravações.
+
+Enquanto o servidor continuar somente neste computador, mantenha `NODE_ENV=development`, `HOST=127.0.0.1` e `APP_ORIGIN=http://localhost:3001`. Quando o servidor também for publicado, altere para `NODE_ENV=production`, `HOST=0.0.0.0`, `APP_ORIGIN=https://seu-dominio` e coloque um proxy HTTPS na frente da aplicação.
+
+Ative **Enforce SSL on incoming connections** no painel do Supabase. Se o plano e a rede permitirem, restrinja o acesso ao banco ao IP público do servidor local. Atenção: IP residencial dinâmico exige atualização dessa regra quando o endereço mudar. Para uma validação TLS explícita por CA, baixe o certificado do projeto e informe seu caminho em `PGSSL_CA`.
 
 As tabelas PostgreSQL ficam no schema privado `clube`, fora dos schemas normalmente expostos pela Data API do Supabase. Não exponha esse schema para anon/authenticated nem envie a conexão do banco ao frontend. A conexão usa validação TLS. A credencial pertence apenas ao backend.
 
-O adaptador e a migração foram preparados no código. A conexão a um projeto Supabase real precisa ser validada quando as credenciais de produção estiverem disponíveis.
+O adaptador valida TLS, aplica tempos-limite de conexão e consulta, identifica a aplicação no PostgreSQL e impede o uso acidental do pooler transacional. A conexão a um projeto Supabase real precisa ser validada quando as credenciais estiverem disponíveis.
 
 ## Estrutura
 

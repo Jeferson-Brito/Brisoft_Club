@@ -1,8 +1,10 @@
 // ===== TIPOS =====
 
 export interface Employee {
-  id: number;
+  id: string | number;
   name: string;
+  cpf?: string;
+  loginEmail?: string;
   role: string;
   client: string;
   post: string;
@@ -15,15 +17,21 @@ export interface Employee {
   avgScore: number;
   presence: number;
   avatar?: string;
+  photo?: string;
+  clientId?: string;
+  postId?: string;
+  supervisorId?: string;
+  allocationStart?: string;
   admissionDate: string;
 }
 
 export interface Client {
-  id: number;
+  id: string | number;
   name: string;
   cnpj: string;
   segment: string;
   posts: number;
+  postIds?: string[];
   employees: number;
   avgScore: number;
   status: 'ativo' | 'inativo' | 'implantacao';
@@ -35,7 +43,7 @@ export interface Client {
 }
 
 export interface Season {
-  id: number;
+  id: string | number;
   name: string;
   subtitle: string;
   period: string;
@@ -48,7 +56,7 @@ export interface Season {
 }
 
 export interface Achievement {
-  id: number;
+  id: string | number;
   date: string;
   employee: string;
   type: string;
@@ -60,7 +68,7 @@ export interface Achievement {
 }
 
 export interface ImportRecord {
-  id: number;
+  id: string | number;
   file: string;
   type: 'colaboradores' | 'clientes' | 'avaliacoes' | 'outros';
   records: number;
@@ -71,7 +79,7 @@ export interface ImportRecord {
 }
 
 export interface User {
-  id: number;
+  id: string | number;
   name: string;
   email: string;
   sector: string;
@@ -83,7 +91,7 @@ export interface User {
 }
 
 export interface Evaluation {
-  id?: number;
+  id?: string | number;
   date: string;
   employee: string;
   registration: string;
@@ -91,7 +99,7 @@ export interface Evaluation {
   post: string;
   evaluator: string;
   evaluatorRole: string;
-  scores: [number, number, number];
+  scores: number[];
   score: number;
   badge: 'ouro' | 'prata' | 'bronze' | null;
   hasCompliment: boolean;

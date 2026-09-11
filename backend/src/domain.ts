@@ -40,6 +40,17 @@ export const permissions = [
   "settings",
 ] as const;
 const text = z.string().trim().min(1).max(200);
+export const normalizeCpf = (value: string) => value.replace(/\D/g, "");
+export function validCpf(value: string) {
+  const cpf = normalizeCpf(value);
+  if (!/^\d{11}$/.test(cpf) || /^(\d)\1{10}$/.test(cpf)) return false;
+  const digit = (length: number) => {
+    const sum = cpf.slice(0, length).split("").reduce((total, number, index) => total + Number(number) * (length + 1 - index), 0);
+    const remainder = (sum * 10) % 11;
+    return remainder === 10 ? 0 : remainder;
+  };
+  return digit(9) === Number(cpf[9]) && digit(10) === Number(cpf[10]);
+}
 const date = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -176,27 +187,40 @@ export const schemas: Partial<Record<Table, z.ZodType>> = {
     responsible: z.string().max(150).default(""),
     email: z.union([z.email(), z.literal("")]).default(""),
     phone: z.string().max(40).default(""),
+    postIds: z.array(text).default([]),
     status: z.enum(["ativo", "inativo", "implantacao"]).default("ativo"),
   }),
   posts: z.object({
     name: text,
-    clientId: text,
     code: z.string().max(50).default(""),
     address: z.string().max(400).default(""),
     status: z.enum(["ativo", "inativo"]).default("ativo"),
   }),
+  clientPosts: z.object({ clientId: text, postId: text }),
   employees: z.object({
     name: text,
+    cpf: z.string().transform(normalizeCpf).refine(validCpf, "CPF inválido"),
     registration: text,
     role: text,
     admissionDate: date,
+    photo: z.string().max(2_800_000).refine(
+      (value) => !value || /^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(value),
+      "Envie uma foto PNG, JPEG ou WebP válida",
+    ).default(""),
     status: z.enum(["ativo", "inativo", "licenca"]).default("ativo"),
   }),
   allocations: z.object({
     employeeId: text,
+    clientId: text,
     postId: text,
     supervisorId: z.string().default(""),
     start: date,
+  }),
+  penaltyTypes: z.object({
+    name: text,
+    description: z.string().trim().max(500).default(""),
+    points: z.number().int().min(0).max(100000),
+    status: z.enum(["ativo", "inativo"]).default("ativo"),
   }),
   seasons: z.object({ name: text, start: date, end: date, publishDate: date }),
   cycles: z.object({
@@ -247,10 +271,17 @@ export function canSee(
   role: RecordData,
   context: RecordData,
 ) {
+  const profile = String(role.name || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
   return (
     role.globalScope ||
-    user.clientIds?.includes(context.clientId) ||
-    user.postIds?.includes(context.postId || context.id)
+    (profile === "cliente"
+      ? user.clientIds?.includes(context.clientId)
+      : user.postIds?.length
+      ? user.postIds.includes(context.postId || context.id)
+      : user.clientIds?.includes(context.clientId))
   );
 }
 export function scoreEvaluation(
@@ -315,6 +346,7 @@ export function rankingRows(
   cycles: RecordData[],
   participants: RecordData[],
   evaluations: RecordData[],
+  employeeActions: RecordData[] = [],
 ) {
   const relevant = cycles.filter((c) => c.seasonId === season.id);
   const ids = new Set(relevant.map((c) => c.id));
@@ -357,15 +389,21 @@ export function rankingRows(
     for (const criterionId of Object.keys(criteria)) {
       criteria[criterionId] /= cycleScores.length;
     }
-    const score = cycleScores.length
+    const rawScore = cycleScores.length
       ? cycleScores.reduce((a, b) => a + b, 0) / cycleScores.length
       : 0;
+    const penaltyPoints = employeeActions
+      .filter((a) => a.employeeId === employeeId && a.seasonId === season.id && a.type === "penalty" && a.status === "ativo")
+      .reduce((sum, a) => sum + Number(a.points || 0), 0);
+    const score = Math.max(0, rawScore - penaltyPoints);
     const eligible = cycleScores.length >= season.rules.minimumCycles;
     rows.push({
       id: employeeId,
       employeeId,
       ...ps[0].snapshot,
       score: Math.round(score * 100) / 100,
+      rawScore: Math.round(rawScore * 100) / 100,
+      penaltyPoints,
       cycles: cycleScores.length,
       evaluations: count,
       eligible,

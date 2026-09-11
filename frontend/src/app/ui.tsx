@@ -7,24 +7,20 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { fmt, useData, type Row } from "./state";
 export function Heading({
-  title,
-  description,
   children,
 }: {
-  title: string;
-  description: string;
+  title?: string;
+  description?: string;
   children?: ReactNode;
 }) {
+  if (!children) return null;
   return (
-    <div className="page-heading">
-      <div>
-        <div className="eyebrow">CLUBE DE TALENTOS</div>
-        <h1>{title}</h1>
-        <p>{description}</p>
-      </div>
+    <div className="flex justify-end items-center mb-3">
       <div className="actions">{children}</div>
     </div>
   );
@@ -124,8 +120,36 @@ export function Modal({
   title,
   children,
   onClose,
+  dismissible = true,
 }: {
   title: string;
+  children: ReactNode;
+  onClose: () => void;
+  dismissible?: boolean;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    ref.current?.showModal();
+  }, []);
+  return (
+    <dialog ref={ref} className="modal" onCancel={(event) => { if (!dismissible) event.preventDefault(); else onClose(); }}>
+      <div className="modal-title">
+        <h2>{title}</h2>
+        {dismissible && <button className="icon-btn" aria-label="Fechar" onClick={onClose}>
+          <X size={20} />
+        </button>}
+      </div>
+      {children}
+    </dialog>
+  );
+}
+
+export function DetailModal({
+  label,
+  children,
+  onClose,
+}: {
+  label: string;
   children: ReactNode;
   onClose: () => void;
 }) {
@@ -134,14 +158,16 @@ export function Modal({
     ref.current?.showModal();
   }, []);
   return (
-    <dialog ref={ref} className="modal" onCancel={onClose}>
-      <div className="modal-title">
-        <h2>{title}</h2>
-        <button className="icon-btn" aria-label="Fechar" onClick={onClose}>
-          <X size={20} />
-        </button>
-      </div>
-      {children}
+    <dialog
+      ref={ref}
+      className="detail-modal"
+      aria-label={label}
+      onCancel={onClose}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="detail-modal-content">{children}</div>
     </dialog>
   );
 }
@@ -149,9 +175,10 @@ export type Field = {
   key: string;
   label: string;
   type?: string;
-  options?: { value: string; label: string }[];
+  options?: { value: string; label: string }[] | ((value: Record<string, any>) => { value: string; label: string }[]);
   required?: boolean;
   hint?: string;
+  clears?: string[];
 };
 export function Editor({
   title,
@@ -159,16 +186,19 @@ export function Editor({
   initial = {},
   onSave,
   onClose,
+  requiredAction = false,
 }: {
   title: string;
   fields: Field[];
   initial?: Record<string, any>;
   onSave: (value: any) => Promise<void>;
   onClose: () => void;
+  requiredAction?: boolean;
 }) {
   const [value, setValue] = useState(initial);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [visiblePasswords, setVisiblePasswords] = useState<string[]>([]);
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -183,10 +213,12 @@ export function Editor({
     }
   }
   return (
-    <Modal title={title} onClose={onClose}>
+    <Modal title={title} onClose={onClose} dismissible={!requiredAction}>
       <form onSubmit={submit}>
         <div className="form-grid">
-          {fields.map((f) => (
+          {fields.map((f) => {
+            const fieldOptions = typeof f.options === "function" ? f.options(value) : f.options;
+            return (
             <label key={f.key} className={f.type === "multi" ? "full" : ""}>
               <span>
                 {f.label}
@@ -194,7 +226,7 @@ export function Editor({
               </span>
               {f.type === "multi" ? (
                 <div className="check-list">
-                  {f.options?.map((o) => (
+                  {fieldOptions?.map((o) => (
                     <label key={o.value}>
                       <input
                         type="checkbox"
@@ -222,27 +254,47 @@ export function Editor({
                     setValue({ ...value, [f.key]: e.target.checked })
                   }
                 />
-              ) : f.options ? (
+              ) : fieldOptions ? (
                 <select
                   required={f.required !== false}
                   value={value[f.key] || ""}
-                  onChange={(e) =>
-                    setValue({ ...value, [f.key]: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const next = { ...value, [f.key]: e.target.value };
+                    for (const key of f.clears || []) next[key] = "";
+                    setValue(next);
+                  }}
                 >
                   <option value="">Selecione</option>
-                  {f.options.map((o) => (
+                  {fieldOptions.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>
                   ))}
                 </select>
+              ) : f.type === "password" ? (
+                <div className="password-control">
+                  <input
+                    type={visiblePasswords.includes(f.key) ? "text" : "password"}
+                    required={f.required !== false}
+                    maxLength={128}
+                    minLength={10}
+                    value={value[f.key] ?? ""}
+                    onChange={(e) => setValue({ ...value, [f.key]: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setVisiblePasswords(current => current.includes(f.key) ? current.filter(key => key !== f.key) : [...current, f.key])}
+                    aria-label={visiblePasswords.includes(f.key) ? "Ocultar senha" : "Visualizar senha"}
+                    title={visiblePasswords.includes(f.key) ? "Ocultar senha" : "Visualizar senha"}
+                  >
+                    {visiblePasswords.includes(f.key) ? <EyeOff size={17} /> : <Eye size={17} />}
+                  </button>
+                </div>
               ) : (
                 <input
                   type={f.type || "text"}
                   required={f.required !== false}
-                  maxLength={f.type === "password" ? 128 : 200}
-                  minLength={f.type === "password" ? 10 : undefined}
+                  maxLength={200}
                   value={value[f.key] ?? ""}
                   onChange={(e) =>
                     setValue({
@@ -257,7 +309,8 @@ export function Editor({
               )}{" "}
               {f.hint && <small>{f.hint}</small>}
             </label>
-          ))}
+            );
+          })}
         </div>
         {error && (
           <p className="error" role="alert">
@@ -265,9 +318,9 @@ export function Editor({
           </p>
         )}
         <div className="form-actions">
-          <button type="button" className="btn secondary" onClick={onClose}>
+          {!requiredAction && <button type="button" className="btn secondary" onClick={onClose}>
             Cancelar
-          </button>
+          </button>}
           <button className="btn" disabled={busy}>
             {busy ? "Salvando…" : "Salvar"}
           </button>

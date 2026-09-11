@@ -180,7 +180,7 @@ function EvaluationForm({
       <div className="stack">
         <Panel>
           <div className="person-header">
-            <Avatar name={participant.snapshot.name} size="xl" />
+            <Avatar name={participant.snapshot.name} src={participant.snapshot.photo} size="xl" />
             <div>
               <h2>{participant.snapshot.name}</h2>
               <p>{participant.snapshot.role}</p>
@@ -313,7 +313,7 @@ function EvaluationForm({
               className={`person-option ${p.id === participant.id ? "active" : ""}`}
               onClick={() => select(p.id)}
             >
-              <Avatar name={p.snapshot.name} size="sm" />
+              <Avatar name={p.snapshot.name} src={p.snapshot.photo} size="sm" />
               <span>
                 <strong>{p.snapshot.name}</strong>
                 <small>{p.snapshot.post}</small>
@@ -515,7 +515,7 @@ export function EvaluationList({
           onClose={() => setDetail(undefined)}
         >
           <div className="person-header">
-            <Avatar name={detail.name} size="lg" />
+            <Avatar name={detail.name} src={detail.photo} size="lg" />
             <div>
               <h2>{detail.name}</h2>
               <p>

@@ -1,369 +1,463 @@
 import { useState } from 'react';
-import { CheckCircle2, Users, Star, FileText, Filter, ChevronDown, ChevronRight, ChevronLeft, Download, Eye, MoreVertical, Calendar } from 'lucide-react';
+import { CheckCircle2, Users, Star, FileText, Filter, Download, Eye, Calendar } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
-import { evaluations } from '../../data/mock';
+import { usePhotoData } from '../../app/photo-data';
+import { Link } from 'react-router-dom';
 
 export default function Concluidas() {
+  const { evaluations: allEvaluations, clients, cycle } = usePhotoData();
+  const evaluations = allEvaluations.filter(item => ['enviada', 'cancelada'].includes(item.status));
+  const completedEvaluations = evaluations.filter(item => item.status === 'enviada');
   const [filterTab, setFilterTab] = useState<'todas' | 'elogio' | 'semelogio' | 'canceladas'>('todas');
   const [selectedClient, setSelectedClient] = useState('Todos');
   const [selectedPost, setSelectedPost] = useState('Todos');
   const [selectedRole, setSelectedRole] = useState('Todos');
   const [selectedEvaluator, setSelectedEvaluator] = useState('Todos');
-  
+  const [selectedClassification, setSelectedClassification] = useState('Todos');
+  const [selectedCompliment, setSelectedCompliment] = useState('Todos');
+  const [minScore, setMinScore] = useState('');
+  const [maxScore, setMaxScore] = useState('');
+  const [selectedRows, setSelectedRows] = useState<Array<string | number>>([]);
+
   const filtered = evaluations.filter(item => {
-    if (filterTab === 'elogio') return item.hasCompliment;
-    if (filterTab === 'semelogio') return !item.hasCompliment;
-    if (filterTab === 'canceladas') return false; // Nenhuma cancelada no mock
-    return true;
+    const matchesTab = filterTab === 'elogio'
+      ? item.status === 'enviada' && item.hasCompliment
+      : filterTab === 'semelogio'
+        ? item.status === 'enviada' && !item.hasCompliment
+        : filterTab === 'canceladas'
+          ? item.status === 'cancelada'
+          : item.status === 'enviada';
+    return (
+      matchesTab &&
+      (selectedClient === 'Todos' || item.client === selectedClient) &&
+      (selectedPost === 'Todos' || item.post === selectedPost) &&
+      (selectedRole === 'Todos' || item.role === selectedRole) &&
+      (selectedEvaluator === 'Todos' || item.evaluator === selectedEvaluator) &&
+      (selectedClassification === 'Todos' || item.badge === selectedClassification.toLowerCase()) &&
+      (selectedCompliment === 'Todos' || item.hasCompliment === (selectedCompliment === 'Sim')) &&
+      (!minScore || item.score >= Number(minScore)) &&
+      (!maxScore || item.score <= Number(maxScore))
+    );
   });
+  const clientOptions = [...new Set(evaluations.map(item => item.client).filter(Boolean))];
+  const postOptions = [...new Set(evaluations.map(item => item.post).filter(Boolean))];
+  const roleOptions = [...new Set(evaluations.map(item => item.role).filter(Boolean))];
+  const evaluatorOptions = [...new Set(evaluations.map(item => item.evaluator).filter(Boolean))];
+  const complimentCount = completedEvaluations.filter(item => item.hasCompliment).length;
+
+  const toggleSelectAll = () => {
+    if (selectedRows.length === filtered.length) {
+      setSelectedRows([]);
+    } else {
+      setSelectedRows(filtered.map((f, i) => f.id ?? (i + 1)));
+    }
+  };
+
+  const toggleSelectRow = (id: string | number) => {
+    setSelectedRows(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]);
+  };
+
+  const selectCls = 'w-full text-xs font-medium border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-700 outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer';
 
   return (
-    <div className="space-y-5">
-      {/* Breadcrumb & Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="text-xs text-slate-400 font-medium mb-1">
-            <span>Avaliações</span> <span className="mx-1">&gt;</span> <span className="text-slate-600 font-semibold">Concluídas</span>
+    <div className="space-y-3.5 page-enter">
+      {/* ── KPI Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+            <CheckCircle2 size={18} />
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">Avaliações Concluídas</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Confira as avaliações já realizadas na temporada atual.</p>
-        </div>
-
-        {/* Season card */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl px-5 py-3 shadow-xs flex items-center justify-between min-w-[280px]">
-          <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-               <Calendar size={18} />
-             </div>
-             <div>
-               <div className="text-[11px] uppercase tracking-wider font-semibold text-slate-400">Temporada Atual</div>
-               <div className="text-base font-bold text-slate-800 leading-tight">2025/1 - 1º Bimestre</div>
-               <div className="text-xs text-slate-400">01/01/2025 - 28/02/2025</div>
-             </div>
-          </div>
-          <span className="badge-ativo text-xs px-2.5 py-1">Em andamento</span>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {/* Card 1 */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center flex-shrink-0">
-            <CheckCircle2 size={22} />
-          </div>
-          <div>
-            <div className="text-2xl font-black text-slate-800">1.548</div>
-            <div className="text-xs font-medium text-slate-500">Avaliações concluídas</div>
-            <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">↑ 18% em relação ao último período</div>
+          <div className="min-w-0">
+            <div className="text-lg font-bold text-slate-800 leading-none">{completedEvaluations.length}</div>
+            <div className="text-xs font-medium text-slate-500 mt-0.5 truncate">Avaliações concluídas</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5 truncate">na temporada selecionada</div>
           </div>
         </div>
 
-        {/* Card 2 */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
-            <Users size={22} />
+        <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+            <Users size={18} />
           </div>
-          <div>
-            <div className="text-2xl font-black text-slate-800">78</div>
-            <div className="text-xs font-medium text-slate-500">Clientes com avaliações</div>
-            <div className="text-[11px] text-slate-400 font-medium mt-0.5">de 87 clientes (90%)</div>
-          </div>
-        </div>
-
-        {/* Card 3 */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center flex-shrink-0">
-            <Star size={22} />
-          </div>
-          <div>
-            <div className="text-2xl font-black text-slate-800">1.120</div>
-            <div className="text-xs font-medium text-slate-500">Com elogios</div>
-            <div className="text-[11px] text-slate-400 font-medium mt-0.5">72% das avaliações</div>
+          <div className="min-w-0">
+            <div className="text-lg font-bold text-slate-800 leading-none">{new Set(evaluations.map(item => item.client)).size}</div>
+            <div className="text-xs font-medium text-slate-500 mt-0.5 truncate">Clientes com avaliações</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5 truncate">de {clients.length} clientes</div>
           </div>
         </div>
 
-        {/* Card 4 */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0">
-            <FileText size={22} />
+        <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
+            <Star size={18} />
           </div>
-          <div>
-            <div className="text-2xl font-black text-slate-800">0</div>
-            <div className="text-xs font-medium text-slate-500">Avaliações canceladas</div>
-            <div className="text-[11px] text-slate-400 font-medium mt-0.5">neste período</div>
+          <div className="min-w-0">
+            <div className="text-lg font-bold text-slate-800 leading-none">{complimentCount}</div>
+            <div className="text-xs font-medium text-slate-500 mt-0.5 truncate">Com elogios</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5 truncate">{completedEvaluations.length ? Math.round(complimentCount / completedEvaluations.length * 100) : 0}% das avaliações</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0">
+            <FileText size={18} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-lg font-bold text-slate-800 leading-none">{evaluations.filter(item => item.status === 'cancelada').length}</div>
+            <div className="text-xs font-medium text-slate-500 mt-0.5 truncate">Avaliações canceladas</div>
+            <div className="text-[10px] text-slate-400 font-medium mt-0.5 truncate">neste período</div>
           </div>
         </div>
       </div>
 
-      {/* Filters Card */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-          <div className="flex items-center gap-2 font-bold text-slate-800 text-sm">
-            <Filter size={16} className="text-blue-600" />
+      {/* ── Filters ── */}
+      <details className="filter-disclosure bg-white rounded-xl p-3.5 shadow-xs border border-slate-200/80 space-y-2.5">
+        <summary className="flex items-center justify-between cursor-pointer">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+            <Filter size={14} className="text-slate-500" />
             <span>Filtros</span>
           </div>
-          <button className="text-xs font-medium text-slate-400 hover:text-slate-600 cursor-pointer flex items-center gap-1">
-            Limpar filtros <ChevronDown size={14} />
+          <button
+            onClick={(event) => {
+              event.preventDefault();
+              setSelectedClient('Todos');
+              setSelectedPost('Todos');
+              setSelectedRole('Todos');
+              setSelectedEvaluator('Todos');
+              setSelectedClassification('Todos');
+              setSelectedCompliment('Todos');
+              setMinScore('');
+              setMaxScore('');
+            }}
+            className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors font-medium"
+          >
+            Limpar filtros
           </button>
-        </div>
+        </summary>
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        {/* Row 1: Período, Cliente, Posto, Função, Avaliador */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
           <div>
-            <label className="text-xs font-medium text-slate-600 block mb-1">Período</label>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Período</label>
             <div className="relative">
-              <Calendar size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                value="01/01/2025 - 28/02/2025"
                 readOnly
-                className="w-full text-xs font-medium border border-slate-200 rounded-xl pl-3 pr-8 py-2 bg-white text-slate-700 outline-none"
+                value={cycle ? `${cycle.start} - ${cycle.end}` : ''}
+                className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-600 cursor-default"
+              />
+              <Calendar size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Cliente</label>
+            <select className={selectCls} value={selectedClient} onChange={e => setSelectedClient(e.target.value)}>
+              <option>Todos</option>
+              {clientOptions.map(value => <option key={value}>{value}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Posto</label>
+            <select className={selectCls} value={selectedPost} onChange={e => setSelectedPost(e.target.value)}>
+              <option>Todos</option>
+              {postOptions.map(value => <option key={value}>{value}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Função</label>
+            <select className={selectCls} value={selectedRole} onChange={e => setSelectedRole(e.target.value)}>
+              <option>Todos</option>
+              {roleOptions.map(value => <option key={value}>{value}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Avaliador</label>
+            <select className={selectCls} value={selectedEvaluator} onChange={e => setSelectedEvaluator(e.target.value)}>
+              <option>Todos</option>
+              {evaluatorOptions.map(value => <option key={value}>{value}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Row 2: Nota final, Classificação, Com elogio, Aplicar */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2 border-t border-slate-100 items-end">
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Nota final</label>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                placeholder="Mínima"
+                value={minScore}
+                onChange={e => setMinScore(e.target.value)}
+                className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-700 outline-none focus:ring-1 focus:ring-blue-400"
+              />
+              <span className="text-slate-400 text-xs">-</span>
+              <input
+                type="number"
+                placeholder="Máxima"
+                value={maxScore}
+                onChange={e => setMaxScore(e.target.value)}
+                className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-700 outline-none focus:ring-1 focus:ring-blue-400"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-slate-600 block mb-1">Cliente</label>
-            <select
-              value={selectedClient}
-              onChange={e => setSelectedClient(e.target.value)}
-              className="w-full text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
-            >
-              <option>Todos</option>
-              <option>Shopping Boa Vista</option>
-              <option>Hospital Central</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-slate-600 block mb-1">Posto</label>
-            <select
-              value={selectedPost}
-              onChange={e => setSelectedPost(e.target.value)}
-              className="w-full text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
-            >
-              <option>Todos</option>
-              <option>Portaria Principal</option>
-              <option>Recepção</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-slate-600 block mb-1">Função</label>
-            <select
-              value={selectedRole}
-              onChange={e => setSelectedRole(e.target.value)}
-              className="w-full text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
-            >
-              <option>Todos</option>
-              <option>Vigilante</option>
-              <option>Recepcionista</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="text-xs font-medium text-slate-600 block mb-1">Avaliador</label>
-            <select
-              value={selectedEvaluator}
-              onChange={e => setSelectedEvaluator(e.target.value)}
-              className="w-full text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
-            >
-              <option>Todos</option>
-              <option>Ana Souza</option>
-              <option>Roberto Lima</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-4 items-end">
-           <div className="md:col-span-2 flex items-center gap-2">
-             <div className="flex-1">
-               <label className="text-xs font-medium text-slate-600 block mb-1">Nota final</label>
-               <input type="text" placeholder="Mínima" className="w-full text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-white text-slate-700 outline-none" />
-             </div>
-             <div className="w-4 h-px bg-slate-300 mb-2"></div>
-             <div className="flex-1">
-               <label className="text-xs font-medium text-slate-600 block mb-1 opacity-0">-</label>
-               <input type="text" placeholder="Máxima" className="w-full text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-white text-slate-700 outline-none" />
-             </div>
-           </div>
-           
-           <div>
-            <label className="text-xs font-medium text-slate-600 block mb-1">Classificação</label>
-            <select
-              className="w-full text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
-            >
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Classificação</label>
+            <select className={selectCls} value={selectedClassification} onChange={e => setSelectedClassification(e.target.value)}>
               <option>Todos</option>
               <option>Ouro</option>
               <option>Prata</option>
+              <option>Bronze</option>
             </select>
           </div>
-          
+
           <div>
-            <label className="text-xs font-medium text-slate-600 block mb-1">Com elogio</label>
-            <select
-              className="w-full text-xs font-medium border border-slate-200 rounded-xl px-3 py-2 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
-            >
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Com elogio</label>
+            <select className={selectCls} value={selectedCompliment} onChange={e => setSelectedCompliment(e.target.value)}>
               <option>Todos</option>
               <option>Sim</option>
               <option>Não</option>
             </select>
           </div>
 
-          <div>
-             <button className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-5 py-2 rounded-xl cursor-pointer transition-colors shadow-xs">
-              Aplicar filtros
-            </button>
+          <div className="flex items-end justify-end">
+            <span className="text-[11px] text-slate-400">Os filtros são aplicados automaticamente.</span>
           </div>
         </div>
-      </div>
+      </details>
 
-      {/* Tabs bar and Export */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+      {/* ── Sub-tabs & Quick Actions ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        {/* Pills */}
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
             onClick={() => setFilterTab('todas')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
-              filterTab === 'todas' ? 'bg-blue-600 text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              filterTab === 'todas'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50'
             }`}
           >
-            <span>Todas</span>
-            <span className={filterTab === 'todas' ? 'bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded-full' : 'bg-blue-100 text-blue-600 text-[10px] px-1.5 py-0.5 rounded-full font-bold'}>1.548</span>
+            Todas ({completedEvaluations.length})
           </button>
           <button
             onClick={() => setFilterTab('elogio')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
-              filterTab === 'elogio' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+              filterTab === 'elogio'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-white text-emerald-700 border border-slate-200/80 hover:bg-emerald-50/50'
             }`}
           >
             <span>Com elogio</span>
-            <span className={filterTab === 'elogio' ? 'bg-emerald-500 text-white text-[10px] px-1.5 py-0.5 rounded-full' : 'bg-emerald-100 text-emerald-600 text-[10px] px-1.5 py-0.5 rounded-full font-bold'}>1.120</span>
+            <span className={`text-[10px] px-1 py-0.2 rounded-full ${filterTab === 'elogio' ? 'bg-white/20' : 'bg-emerald-100 text-emerald-800'}`}>
+              {completedEvaluations.filter(item => item.hasCompliment).length}
+            </span>
           </button>
           <button
             onClick={() => setFilterTab('semelogio')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
-              filterTab === 'semelogio' ? 'bg-orange-500 text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+              filterTab === 'semelogio'
+                ? 'bg-amber-500 text-white shadow-xs'
+                : 'bg-white text-amber-700 border border-slate-200/80 hover:bg-amber-50/50'
             }`}
           >
             <span>Sem elogio</span>
-            <span className={filterTab === 'semelogio' ? 'bg-orange-400 text-white text-[10px] px-1.5 py-0.5 rounded-full' : 'bg-orange-100 text-orange-600 text-[10px] px-1.5 py-0.5 rounded-full font-bold'}>428</span>
+            <span className={`text-[10px] px-1 py-0.2 rounded-full ${filterTab === 'semelogio' ? 'bg-white/20' : 'bg-amber-100 text-amber-800'}`}>
+              {completedEvaluations.filter(item => !item.hasCompliment).length}
+            </span>
           </button>
           <button
             onClick={() => setFilterTab('canceladas')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
-              filterTab === 'canceladas' ? 'bg-red-500 text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+              filterTab === 'canceladas'
+                ? 'bg-rose-500 text-white shadow-xs'
+                : 'bg-white text-rose-600 border border-slate-200/80 hover:bg-rose-50/50'
             }`}
           >
             <span>Canceladas</span>
-            <span className={filterTab === 'canceladas' ? 'bg-red-400 text-white text-[10px] px-1.5 py-0.5 rounded-full' : 'bg-red-100 text-red-600 text-[10px] px-1.5 py-0.5 rounded-full font-bold'}>0</span>
+            <span className={`text-[10px] px-1 py-0.2 rounded-full ${filterTab === 'canceladas' ? 'bg-white/20' : 'bg-rose-100 text-rose-700'}`}>
+              {evaluations.filter(item => item.status === 'cancelada').length}
+            </span>
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3.5 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors shadow-2xs">
-            <Download size={14} className="text-blue-600" />
-            <span>Exportar Excel</span>
-          </button>
+        {/* Export */}
+        <a href="/api/export/evaluations" className="flex items-center gap-1 text-xs font-medium text-slate-600 border border-slate-200/80 bg-white hover:bg-slate-50 px-2.5 py-1 rounded-lg transition-colors self-end sm:self-auto">
+          <Download size={12} />
+          <span>Exportar Excel</span>
+        </a>
+      </div>
+
+      {/* ── Mobile Cards View (Telas menores que md) ── */}
+      <div className="block md:hidden space-y-3">
+        {filtered.map((row, idx) => {
+          const rowId = row.id ?? (idx + 1);
+          const badgeLabel = row.badge ? row.badge.charAt(0).toUpperCase() + row.badge.slice(1) : 'Sem medalha';
+          const scoreBg = row.badge === 'ouro'
+            ? 'bg-amber-100 text-amber-800 border-amber-200'
+            : row.badge === 'prata'
+            ? 'bg-slate-100 text-slate-700 border-slate-300'
+            : 'bg-orange-100 text-orange-800 border-orange-200';
+
+          return (
+            <div key={rowId} className="bg-white rounded-xl p-3.5 border border-slate-200/80 shadow-xs space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Avatar name={row.employee} src={row.photo} size="md" />
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-slate-800 text-sm truncate leading-tight">{row.employee}</h3>
+                    <p className="text-[11px] text-slate-500 truncate">{row.role} · Matrícula {row.registration}</p>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="text-base font-black text-slate-800 leading-tight">{row.score} pts</div>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border mt-0.5 ${scoreBg}`}>
+                    {badgeLabel}
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-slate-50/80 rounded-lg p-2.5 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400">Cliente / Posto:</span>
+                  <span className="font-medium text-slate-700 truncate max-w-[190px]">{row.client} · {row.post}</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400">Avaliador:</span>
+                  <div className="flex items-center gap-1.5 truncate max-w-[190px]">
+                    <span className="font-semibold text-slate-700 truncate">{row.evaluator}</span>
+                    {row.replicated && (
+                      <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200">Replicada</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400">Data de envio:</span>
+                  <span className="text-slate-600">{row.date} às {row.time}</span>
+                </div>
+              </div>
+
+              <Link
+                to={`/avaliacoes/historico?evaluation=${row.id}`}
+                className="w-full flex items-center justify-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs py-2 px-3 rounded-lg transition-colors"
+              >
+                <Eye size={13} />
+                <span>Ver detalhes da avaliação</span>
+              </Link>
+            </div>
+          );
+        })}
+        <div className="p-2 text-center text-xs text-slate-400 font-medium">
+          Mostrando {filtered.length} de {evaluations.length} avaliações concluídas
         </div>
       </div>
 
-      {/* Table Card */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
+      {/* ── Desktop Table (Telas médias e grandes) ── */}
+      <div className="hidden md:block bg-white rounded-xl shadow-xs border border-slate-200/80 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-max">
+          <table className="w-full text-xs text-left">
             <thead>
-              <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider text-slate-400 font-semibold bg-slate-50/50">
-                <th className="py-3.5 pl-4 pr-2 w-8">
-                  <input type="checkbox" className="rounded text-blue-600 accent-blue-600" />
+              <tr className="bg-slate-50/80 text-slate-500 font-semibold border-b border-slate-200/80 text-[11px] whitespace-nowrap">
+                <th className="p-2.5 w-8">
+                  <input
+                    type="checkbox"
+                    checked={selectedRows.length === filtered.length && filtered.length > 0}
+                    onChange={toggleSelectAll}
+                    className="w-3.5 h-3.5 rounded text-blue-600 accent-blue-600 cursor-pointer"
+                  />
                 </th>
-                <th className="py-3.5 px-3">Colaborador</th>
-                <th className="py-3.5 px-3">Matrícula</th>
-                <th className="py-3.5 px-3">Função</th>
-                <th className="py-3.5 px-3">Cliente</th>
-                <th className="py-3.5 px-3">Posto</th>
-                <th className="py-3.5 px-3">Avaliador</th>
-                <th className="py-3.5 px-3">Data da avaliação</th>
-                <th className="py-3.5 px-3">Notas</th>
-                <th className="py-3.5 px-3">Pontuação</th>
-                <th className="py-3.5 px-3">Classificação</th>
-                <th className="py-3.5 pr-4 pl-3 text-right">Ações</th>
+                <th className="py-2.5 px-3">Colaborador</th>
+                <th className="py-2.5 px-3">Matrícula</th>
+                <th className="py-2.5 px-3">Função</th>
+                <th className="py-2.5 px-3">Cliente</th>
+                <th className="py-2.5 px-3">Posto</th>
+                <th className="py-2.5 px-3">Avaliador</th>
+                <th className="py-2.5 px-3">Data da avaliação</th>
+                <th className="py-2.5 px-3 text-center">Notas</th>
+                <th className="py-2.5 px-3 text-center">Pontuação</th>
+                <th className="py-2.5 px-3 text-center">Classificação</th>
+                <th className="py-2.5 px-3 text-center">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
-              {filtered.map((item, idx) => (
-                <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="py-3 pl-4 pr-2">
-                    <input type="checkbox" className="rounded text-blue-600 accent-blue-600" />
-                  </td>
-                  <td className="py-3 px-3">
-                    <div className="flex items-center gap-2.5">
-                      <Avatar name={item.employee} size="sm" />
-                      <span className="font-semibold text-slate-800">{item.employee}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-3 text-slate-500 font-mono">{item.registration}</td>
-                  <td className="py-3 px-3 text-slate-600">{item.employee === 'Daniel Ferreira' ? 'Porteiro' : item.employee === 'Fernanda Rocha' ? 'Zeladora' : item.employee.includes('Costa') ? 'Aux. Serviços Gerais' : 'Vigilante'}</td>
-                  <td className="py-3 px-3 text-slate-700 font-medium">{item.client}</td>
-                  <td className="py-3 px-3 text-slate-500">{item.post}</td>
-                  <td className="py-3 px-3">
-                    <div className="text-slate-700 font-medium">{item.evaluator}</div>
-                    <div className="text-[10px] text-slate-400">({item.evaluatorRole})</div>
-                  </td>
-                  <td className="py-3 px-3 text-slate-600">
-                    <div>{item.date}</div>
-                    <div className="text-[10px] text-slate-400">{(idx * 2 + 10) % 24}:{(idx * 17 + 15) % 60 < 10 ? '0' : ''}{(idx * 17 + 15) % 60}</div>
-                  </td>
-                  <td className="py-3 px-3">
-                    <div className="flex gap-1">
-                      {item.scores.map((score, sIdx) => (
-                        <span key={sIdx} className={`w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold ${
-                          score === 5 ? 'bg-emerald-100 text-emerald-700' : 
-                          score === 4 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                        }`}>
-                          {score}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="py-3 px-3 font-bold text-slate-800">{item.score}</td>
-                  <td className="py-3 px-3">
-                    <span className={`badge-${item.badge || 'prata'}`}>{item.badge ? item.badge.charAt(0).toUpperCase() + item.badge.slice(1) : ''}</span>
-                  </td>
-                  <td className="py-3 pr-4 pl-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button className="bg-white border border-blue-200 hover:bg-blue-50 hover:border-blue-300 text-blue-600 px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-colors shadow-2xs text-[11px] cursor-pointer">
-                        <Eye size={12} />
-                        <span>Ver</span>
-                      </button>
-                      <button className="text-slate-400 hover:text-slate-600 p-1 rounded-md cursor-pointer">
-                        <MoreVertical size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+            <tbody className="divide-y divide-slate-100">
+              {filtered.map((row, idx) => {
+                const rowId = row.id ?? (idx + 1);
+                const isSelected = selectedRows.includes(rowId);
+                const badgeLabel = row.badge ? row.badge.charAt(0).toUpperCase() + row.badge.slice(1) : 'Sem medalha';
+                const scoreBg = row.badge === 'ouro'
+                  ? 'bg-amber-100 text-amber-800 border-amber-200'
+                  : row.badge === 'prata'
+                  ? 'bg-slate-100 text-slate-700 border-slate-300'
+                  : 'bg-orange-100 text-orange-800 border-orange-200';
+
+                return (
+                  <tr key={rowId} className={`hover:bg-slate-50/70 transition-colors ${isSelected ? 'bg-blue-50/40' : ''}`}>
+                    <td className="p-2.5">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectRow(rowId)}
+                        className="w-3.5 h-3.5 rounded text-blue-600 accent-blue-600 cursor-pointer"
+                      />
+                    </td>
+                    <td className="py-2 px-3">
+                      <div className="flex items-center gap-2">
+                        <Avatar name={row.employee} src={row.photo} size="sm" />
+                        <span className="font-semibold text-slate-800 whitespace-nowrap">{row.employee}</span>
+                      </div>
+                    </td>
+                    <td className="py-2 px-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">{row.registration}</td>
+                    <td className="py-2 px-3 text-slate-600 whitespace-nowrap">{row.role}</td>
+                    <td className="py-2 px-3 text-slate-600 whitespace-nowrap">{row.client}</td>
+                    <td className="py-2 px-3 text-slate-500 whitespace-nowrap">{row.post}</td>
+                    <td className="py-2 px-3 text-slate-600 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
+                        <span>{row.evaluator}</span>
+                        {row.replicated && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200">Replicada</span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-400">({row.evaluatorRole})</div>
+                    </td>
+                    <td className="py-2 px-3 whitespace-nowrap">
+                      <div>{row.date}</div>
+                      <div className="text-[10px] text-slate-400">{row.time}</div>
+                    </td>
+                    <td className="py-2 px-3 whitespace-nowrap text-center">
+                      <div className="inline-flex items-center gap-1">
+                        {row.scores.map((s: number, i: number) => (
+                          <span key={i} className={`w-5 h-5 rounded flex items-center justify-center font-bold text-[10px] ${
+                            s === 5 ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
+                          }`}>{s}</span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="py-2 px-3 whitespace-nowrap text-center font-black text-slate-800">{row.score}</td>
+                    <td className="py-2 px-3 whitespace-nowrap text-center">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold border ${scoreBg}`}>
+                        {badgeLabel}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 whitespace-nowrap text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Link to={`/avaliacoes/historico?evaluation=${row.id}`} className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 bg-blue-50/70 hover:bg-blue-100/70 font-semibold text-[11px] px-2 py-0.5 rounded-md transition-colors">
+                          <Eye size={12} />
+                          <span>Ver</span>
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
-        {/* Footer & Pagination */}
-        <div className="px-5 py-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500">
-          <div>Mostrando 1 - 8 de 1.548 resultados</div>
-          <div className="flex items-center gap-1">
-            <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600">
-              <ChevronLeft size={15} />
-            </button>
-            <button className="w-8 h-8 rounded-lg bg-blue-600 text-white font-bold flex items-center justify-center">1</button>
-            <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 font-medium">2</button>
-            <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 font-medium">3</button>
-            <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 font-medium">4</button>
-            <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 font-medium">5</button>
-            <span className="px-1 text-slate-400">...</span>
-            <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600 font-medium">194</button>
-            <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50 text-slate-600">
-              <ChevronRight size={15} />
-            </button>
-          </div>
+        <div className="p-3 border-t border-slate-100 text-xs text-slate-500">
+          Mostrando {filtered.length} de {evaluations.length} resultados reais
         </div>
       </div>
     </div>

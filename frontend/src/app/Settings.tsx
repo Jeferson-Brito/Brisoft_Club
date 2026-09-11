@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { api, dateLabel, useData } from "./state";
-import { Heading, Panel, DataTable, Action } from "./ui";
+import { Heading, Panel, DataTable, Action, Editor } from "./ui";
 export function Settings() {
   const { data, refresh, notify } = useData();
   const [rules, setRules] = useState(() =>
     structuredClone(data.settings!.rules),
   );
   const [tab, setTab] = useState("scale");
+  const [penaltyEditor, setPenaltyEditor] = useState<any | null>(null);
+  const [employeeDomain, setEmployeeDomain] = useState(data.settings?.employeeEmailDomain || "");
   const change = (key: string, value: any) =>
     setRules({ ...rules, [key]: value });
   return (
@@ -15,7 +17,7 @@ export function Settings() {
         title="Configurações"
         description="Defina a pontuação da empresa. Mudanças valem para temporadas ainda não iniciadas."
       >
-        <Action
+        {!['penalties', 'access'].includes(tab) && <Action
           onClick={async () => {
             await api("/settings", rules);
             await refresh();
@@ -25,19 +27,21 @@ export function Settings() {
           }}
         >
           Salvar regulamento
-        </Action>
+        </Action>}
       </Heading>
-      <div className="notice">
+      {!['penalties', 'access'].includes(tab) && <div className="notice">
         O total de cada avaliação é a soma de{" "}
         <strong>pontos da nota × peso do critério</strong>, acrescida do elogio
         aprovado. A temporada usa a média dos ciclos; dentro de cada ciclo, a
         média ponderada dos avaliadores.
-      </div>
+      </div>}
       <div className="tabs">
         {[
           ["scale", "Escala de notas"],
           ["criteria", "Critérios"],
           ["program", "Programa e ranking"],
+          ["penalties", "Penalidades"],
+          ["access", "Acesso de colaboradores"],
           ["history", "Versões e auditoria"],
         ].map(([key, name]) => (
           <button
@@ -459,6 +463,65 @@ export function Settings() {
           </Panel>
         </div>
       )}
+      {tab === "penalties" && (
+        <Panel title="Catálogo de penalidades">
+          <p>
+            Cadastre aqui os motivos e o desconto padrão. Depois, aplique a
+            penalidade ou um bloqueio diretamente no perfil do colaborador.
+          </p>
+          <div className="actions mt">
+            <button className="btn" onClick={() => setPenaltyEditor({ status: "ativo", points: 0 })}>
+              Nova penalidade
+            </button>
+          </div>
+          <DataTable
+            title="Penalidades cadastradas"
+            search={false}
+            rows={data.penaltyTypes}
+            columns={[
+              { key: "name", label: "Nome" },
+              { key: "description", label: "Descrição" },
+              { key: "points", label: "Pontos descontados" },
+              { key: "status", label: "Status" },
+            ]}
+            actions={(row) => (
+              <button className="btn secondary compact" onClick={() => setPenaltyEditor(row)}>Editar</button>
+            )}
+          />
+        </Panel>
+      )}
+      {tab === "access" && (
+        <Panel title="Acesso automático dos colaboradores">
+          <p>
+            Defina o domínio usado para criar o login quando um colaborador for
+            cadastrado. Exemplo: João da Silva será criado como
+            joao.da.silva@empresa.com.br.
+          </p>
+          <div className="form-grid mt">
+            <label>
+              Domínio padrão
+              <input
+                value={employeeDomain}
+                placeholder="@empresa.com.br"
+                onChange={(event) => setEmployeeDomain(event.target.value)}
+              />
+              <small>O CPF será apenas a senha inicial e deverá ser trocado no primeiro acesso.</small>
+            </label>
+          </div>
+          <div className="actions mt">
+            <Action onClick={async () => {
+              const result = await api('/settings/employee-access', { domain: employeeDomain });
+              setEmployeeDomain(result.domain);
+              await refresh();
+              notify('Domínio dos colaboradores salvo.');
+            }}>Salvar domínio</Action>
+          </div>
+          <div className="notice mt">
+            A alteração vale para novos acessos. Logins já criados permanecem
+            iguais para evitar que colaboradores percam o acesso.
+          </div>
+        </Panel>
+      )}
       {tab === "history" && (
         <>
           <Panel title="Temporadas e versões preservadas">
@@ -491,6 +554,24 @@ export function Settings() {
             ]}
           />
         </>
+      )}
+      {penaltyEditor && (
+        <Editor
+          title={penaltyEditor.id ? "Editar penalidade" : "Nova penalidade"}
+          initial={penaltyEditor}
+          fields={[
+            { key: "name", label: "Nome da penalidade" },
+            { key: "description", label: "Descrição", required: false },
+            { key: "points", label: "Pontos a descontar", type: "number" },
+            { key: "status", label: "Status", options: [{ value: "ativo", label: "Ativa" }, { value: "inativo", label: "Inativa" }] },
+          ]}
+          onClose={() => setPenaltyEditor(null)}
+          onSave={async (value) => {
+            await api("/records/penaltyTypes", value);
+            await refresh();
+            notify("Penalidade salva.");
+          }}
+        />
       )}
     </>
   );

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CalendarDays, CirclePlay, BarChart3, Users, Trash2 } from "lucide-react";
 import { api, dateLabel, useData, type Row } from "./state";
 import {
   Heading,
@@ -15,11 +16,35 @@ export function Seasons() {
   const [selected, setSelected] = useState("");
   const [editing, setEditing] = useState<Row>();
   const [participants, setParticipants] = useState<string>();
-  async function action(path: string, label: string) {
+  async function action(path: string, label: string, body: Record<string, unknown> = {}) {
     if (!confirm(label)) return;
-    await api(path, {});
+    await api(path, body);
     await refresh();
     notify("Operação concluída.");
+  }
+  async function activateCycle(season: Row, cycle: Row) {
+    const startsSeason = season.status === "planejada";
+    if (!confirm(startsSeason
+      ? "Iniciar a temporada e este ciclo agora? Os colaboradores alocados durante o período serão incluídos."
+      : "Iniciar este ciclo com os colaboradores alocados durante o período?")) return;
+    try {
+      if (startsSeason) await api(`/seasons/${season.id}/activate`, { confirmRules: true });
+      await api(`/cycles/${cycle.id}/activate`, {});
+      notify("Ciclo iniciado e participantes liberados para avaliação.");
+    } finally {
+      await refresh();
+    }
+  }
+  async function removeSeason(season: Row) {
+    if (!confirm(`Excluir a temporada ${season.name} permanentemente? Todos os ciclos, participantes e avaliações desta temporada serão removidos.`)) return;
+    try {
+      await api(`/records/seasons/${season.id}/delete`, { confirm: true });
+      setParticipants(undefined);
+      await refresh();
+      notify("Temporada excluída.");
+    } catch (error) {
+      notify((error as Error).message);
+    }
   }
   const seasonFields = [
     { key: "name", label: "Nome da temporada" },
@@ -54,6 +79,12 @@ export function Seasons() {
           }}
         />
       </Heading>
+      <div className="photo-summary">
+        <div className="photo-stat"><CalendarDays /><span><strong>{data.seasons.length}</strong><small>Temporadas cadastradas</small></span></div>
+        <div className="photo-stat green"><CirclePlay /><span><strong>{data.seasons.filter(s => s.status === 'ativa').length}</strong><small>Temporada ativa</small></span></div>
+        <div className="photo-stat"><BarChart3 /><span><strong>{data.seasons.filter(s => ['encerrada', 'publicada'].includes(s.status)).length}</strong><small>Resultados consolidados</small></span></div>
+        <div className="photo-stat"><Users /><span><strong>{data.participants.length}</strong><small>Participações registradas</small></span></div>
+      </div>
       {!data.seasons.length && (
         <Panel>
           <div className="empty">
@@ -88,7 +119,8 @@ export function Seasons() {
                     onClick={() =>
                       action(
                         `/seasons/${s.id}/activate`,
-                        "Iniciar a temporada e congelar o regulamento atual?",
+                        "Iniciar a temporada e confirmar o regulamento atual? As regras serão preservadas para esta temporada.",
+                        { confirmRules: true },
                       )
                     }
                   >
@@ -142,6 +174,13 @@ export function Seasons() {
                   Publicar resultado
                 </Action>
               )}
+              <button
+                className="text-button danger"
+                onClick={() => void removeSeason(s)}
+                data-help="Exclui permanentemente a temporada, seus ciclos e todas as avaliações relacionadas."
+              >
+                <Trash2 size={14} /> Excluir
+              </button>
             </div>
             <div className="cycle-list">
               {data.cycles
@@ -162,15 +201,9 @@ export function Seasons() {
                         <>
                           <Action
                             secondary
-                            disabled={s.status !== "ativa"}
-                            onClick={() =>
-                              action(
-                                `/cycles/${c.id}/activate`,
-                                "Iniciar ciclo com os colaboradores alocados na data de início? Os vínculos serão preservados.",
-                              )
-                            }
+                            onClick={() => activateCycle(s, c)}
                           >
-                            Iniciar ciclo
+                            {s.status === "planejada" ? "Iniciar temporada e ciclo" : "Iniciar ciclo"}
                           </Action>
                           <button
                             className="text-button"
@@ -194,6 +227,19 @@ export function Seasons() {
                           }
                         >
                           Encerrar
+                        </Action>
+                      )}
+                      {c.status === "encerrado" && s.status === "ativa" && (
+                        <Action
+                          secondary
+                          onClick={() =>
+                            action(
+                              `/cycles/${c.id}/reopen`,
+                              "Reabrir este ciclo? Colaboradores ativos, alocados e com pelo menos três meses de empresa serão sincronizados.",
+                            )
+                          }
+                        >
+                          Reabrir ciclo
                         </Action>
                       )}
                       <button
