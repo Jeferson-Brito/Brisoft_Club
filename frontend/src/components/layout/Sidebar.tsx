@@ -97,22 +97,40 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile }: { collapsed: boo
       }}
     >
       {/* Logo */}
-      <div className="sidebar-brand flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="sidebar-brand-mark" aria-hidden="true">
-            <Star size={22} strokeWidth={2.2} />
+      <div className={`sidebar-brand flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
+        {collapsed ? (
+          <Link to="/" className="flex items-center justify-center p-0.5" title="Clube de Talentos">
+            <img
+              src="/logo/Logo_Club_Talentos_Transparente.png"
+              alt="Clube de Talentos"
+              className="w-11 h-11 object-contain drop-shadow-xs transition-transform hover:scale-105"
+            />
+          </Link>
+        ) : (
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <Link to="/" className="flex items-center gap-2.5 min-w-0" title="Clube de Talentos">
+              {/* No desktop expandido usa logo sem nome; no drawer mobile usa a logo completa */}
+              <img
+                src="/logo/Logo_Club_Talentos_Transparente_sem_nome.png"
+                alt="Clube de Talentos"
+                className="hidden md:block w-9 h-9 object-contain flex-shrink-0 drop-shadow-xs"
+              />
+              <img
+                src="/logo/Logo_Club_Talentos_Transparente.png"
+                alt="Clube de Talentos"
+                className="md:hidden w-10 h-10 object-contain flex-shrink-0 drop-shadow-xs"
+              />
+              <div className="sidebar-brand-copy min-w-0">
+                <strong className="truncate font-black text-slate-800 text-[13px] tracking-tight">Clube de Talentos</strong>
+                <small className="truncate text-slate-400 text-[10px] font-semibold uppercase tracking-wider">{data.organization}</small>
+              </div>
+            </Link>
           </div>
-          {!collapsed && (
-            <div className="sidebar-brand-copy">
-              <strong>Clube de Talentos</strong>
-              <small>{data.organization}</small>
-            </div>
-          )}
-        </div>
-        {onCloseMobile && (
+        )}
+        {!collapsed && onCloseMobile && (
           <button
             onClick={onCloseMobile}
-            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors"
+            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors ml-auto flex-shrink-0"
             aria-label="Fechar menu"
           >
             <X size={20} />

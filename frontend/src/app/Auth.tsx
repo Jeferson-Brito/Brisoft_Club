@@ -14,7 +14,11 @@ export function Auth({
   return (
     <main className="auth">
       <section className="auth-brand">
-        <span className="brand-star">☆</span>
+        <img
+          src="/logo/Logo_Club_Talentos_Transparente_sem_nome.png"
+          alt="Clube de Talentos"
+          className="w-20 h-20 object-contain mb-3 drop-shadow-md"
+        />
         <h1>
           CLUBE DE
           <br />

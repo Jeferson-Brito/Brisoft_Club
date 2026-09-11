@@ -143,6 +143,19 @@ function Layout({ logout }: { logout: () => void }) {
             <Menu size={20} />
           </button>
 
+          {/* Logo no cabeçalho na versão mobile à esquerda */}
+          <Link
+            to="/"
+            className="md:hidden flex items-center gap-2 py-0.5 flex-shrink-0"
+            aria-label="Clube de Talentos"
+          >
+            <img
+              src="/logo/Logo_Club_Talentos_Transparente.png"
+              alt="Clube de Talentos"
+              className="h-10 w-auto object-contain drop-shadow-xs"
+            />
+          </Link>
+
           <div className="topbar-right ml-auto flex items-center gap-3">
             {evaluator && (
               <div className="relative" ref={notificationsRef}>

@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import {
-  ChevronRight, ChevronLeft, ChevronDown, Send, User, MapPin, Hash,
+  ChevronRight, ChevronLeft, ChevronDown, Send, User, MapPin,
   UserCheck, CheckCircle2, Calendar, Star, FileText,
   Building2, RotateCcw, Save, X, Pencil
 } from 'lucide-react';
@@ -35,6 +35,28 @@ export default function Avaliar() {
   const [step, setStep] = useState<'criterion' | 'summary'>('criterion');
   const [hasSavedDraft, setHasSavedDraft] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [draftModalOpen, setDraftModalOpen] = useState(false);
+  const draftModalRef = useRef<HTMLDivElement>(null);
+
+  const hasAnyData = useMemo(() => {
+    return (
+      Object.keys(ratings).length > 0 ||
+      Object.values(comments).some(c => Boolean(c?.trim())) ||
+      Boolean(compliment?.trim())
+    );
+  }, [ratings, comments, compliment]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (draftModalRef.current && !draftModalRef.current.contains(e.target as Node)) {
+        setDraftModalOpen(false);
+      }
+    };
+    if (draftModalOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [draftModalOpen]);
 
   const criteria = useMemo(() => (season?.rules?.criteria || []).map((criterion: any, index: number) => ({
     id: String(criterion.id),
@@ -290,10 +312,6 @@ export default function Avaliar() {
                   <MapPin size={12} className="text-slate-400 flex-shrink-0" />
                   <span className="truncate">{employee?.post}</span>
                 </div>
-                <div className="flex items-center gap-1 truncate" title={`Matrícula: ${employee?.registration}`}>
-                  <Hash size={12} className="text-slate-400 flex-shrink-0" />
-                  <span>Matrícula: {employee?.registration}</span>
-                </div>
                 {employee?.supervisor && employee?.supervisor !== '—' && (
                   <div className="hidden sm:flex items-center gap-1 truncate" title={`Supervisor: ${employee?.supervisor}`}>
                     <UserCheck size={12} className="text-slate-400 flex-shrink-0" />
@@ -306,13 +324,53 @@ export default function Avaliar() {
 
           {/* Right: Progress box + Auto-save indicator */}
           <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end pt-1.5 sm:pt-0 border-t sm:border-t-0 border-slate-100 flex-shrink-0">
-            {hasSavedDraft && (
-              <div
-                className="flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded-lg sm:rounded-xl px-2 sm:px-2.5 py-0.5 sm:py-1 shadow-2xs cursor-help"
-                title="Suas respostas são salvas automaticamente neste aparelho para você não perder nada se interromper."
-              >
-                <Save size={11} className="text-emerald-600" />
-                <span>Rascunho salvo</span>
+            {hasSavedDraft && hasAnyData && (
+              <div className="relative" ref={draftModalRef}>
+                <button
+                  type="button"
+                  onClick={() => setDraftModalOpen(prev => !prev)}
+                  className="w-7 h-7 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 flex items-center justify-center text-emerald-600 transition-colors shadow-2xs cursor-pointer"
+                  aria-label="Status do rascunho"
+                  title="Rascunho salvo (clique para ver detalhes)"
+                >
+                  <Save size={13} />
+                </button>
+
+                {draftModalOpen && (
+                  <div
+                    className="absolute right-0 top-full mt-1.5 z-40 bg-white border border-slate-200/90 rounded-2xl p-3.5 shadow-xl w-60 text-left animate-in fade-in"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-1.5 text-emerald-700 font-bold text-xs">
+                        <Save size={13} className="text-emerald-600 flex-shrink-0" />
+                        <span>Rascunho salvo</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDraftModalOpen(false)}
+                        className="text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                        aria-label="Fechar"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Suas respostas estão salvas automaticamente neste aparelho.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleClearDraft();
+                        setDraftModalOpen(false);
+                      }}
+                      className="mt-2.5 text-[10px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer pt-1.5 border-t border-slate-100 w-full"
+                    >
+                      <RotateCcw size={11} />
+                      <span>Limpar rascunho</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
