@@ -119,14 +119,19 @@ export function createApp(store: Store) {
       } catch {
         // Uma APP_ORIGIN inválida continuará aceitando somente o valor literal.
       }
+      const origin = req.headers.origin;
+      const isAllowedDevOrigin =
+        process.env.NODE_ENV !== "production" &&
+        Boolean(
+          origin &&
+            (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+              /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(origin) ||
+              /^https?:\/\/.*?\.(loca\.lt|devtunnels\.ms|ngrok(-free)?\.app|trycloudflare\.com|pinggy\.link|app\.github\.dev)(:\d+)?$/.test(origin))
+        );
+
       if (
         !allowedOrigins.has(req.headers.origin) &&
-        !(
-          process.env.NODE_ENV !== "production" &&
-          /^http:\/\/(localhost|127\.0\.0\.1):(5173|5174|4173)$/.test(
-            req.headers.origin,
-          )
-        )
+        !isAllowedDevOrigin
       )
         return next(new HttpError(403, "Origem não autorizada"));
     }
@@ -182,7 +187,7 @@ export function createApp(store: Store) {
     });
     res.cookie("clube_session", token, {
       httpOnly: true,
-      sameSite: "strict",
+      sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       maxAge: 8 * 3600000,
       path: "/",
