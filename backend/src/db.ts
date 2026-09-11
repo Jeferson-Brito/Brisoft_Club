@@ -313,10 +313,15 @@ export class TenantStore {
     const row = await this.root.get(table, id);
     return row?.tenantId === this.tenantId ? row : undefined;
   }
+  async query(sql: string, params: any[] = []) {
+    return this.root.query(sql, params);
+  }
   async put(table: Table, data: RecordData) {
-    const previous = await this.root.get(table, data.id);
-    if (previous && previous.tenantId !== this.tenantId)
-      throw new Error("Tenant mismatch");
+    if (table !== "audit") {
+      const previous = await this.root.get(table, data.id);
+      if (previous && previous.tenantId !== this.tenantId)
+        throw new Error("Tenant mismatch");
+    }
     return this.root.put(table, { ...data, tenantId: this.tenantId });
   }
   async remove(table: Table, id: string) {

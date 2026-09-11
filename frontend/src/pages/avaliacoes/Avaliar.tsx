@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import {
   ChevronRight, ChevronLeft, ChevronDown, Send, User, MapPin,
   UserCheck, CheckCircle2, Calendar, Star, FileText,
-  Building2, RotateCcw, Save, X, Pencil
+  Building2, RotateCcw, Save, X, Pencil, Check
 } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { api } from '../../app/state';
@@ -418,9 +418,6 @@ export default function Avaliar() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
-                    Peso {currentCriterion.weight.toFixed(1)}
-                  </span>
                   {hasSavedDraft && (
                     <button
                       type="button"
@@ -483,16 +480,28 @@ export default function Avaliar() {
                         key={v}
                         type="button"
                         onClick={() => {
-                          setRatings(prev => ({ ...prev, [currentCriterion.id]: v }));
+                          setRatings(prev => {
+                            if (prev[currentCriterion.id] === v) {
+                              const next = { ...prev };
+                              delete next[currentCriterion.id];
+                              return next;
+                            }
+                            return { ...prev, [currentCriterion.id]: v };
+                          });
                         }}
-                        className={`flex flex-col items-center justify-center min-h-[58px] sm:min-h-[52px] p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer select-none active:scale-95 ${
+                        className={`relative flex flex-col items-center justify-center min-h-[62px] sm:min-h-[58px] p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer select-none active:scale-95 ${
                           isSelected
                             ? `${col.activeBg} ${col.activeBorder} ${col.activeText} shadow-md font-bold ring-4 ring-blue-300/60 scale-[1.02]`
                             : `${col.bg} ${col.border} ${col.text} hover:brightness-95`
                         }`}
                       >
-                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black mb-0.5 ${
-                          isSelected ? 'bg-white/25 text-white' : 'bg-white text-slate-700 shadow-2xs'
+                        {isSelected && (
+                          <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-4 h-4 sm:w-4.5 sm:h-4.5 bg-white rounded-full flex items-center justify-center shadow-xs text-emerald-600 animate-in zoom-in-50 duration-150">
+                            <Check size={11} className="stroke-[3.5]" />
+                          </span>
+                        )}
+                        <span className={`text-sm sm:text-base font-black mb-0.5 leading-none ${
+                          isSelected ? 'text-white' : 'text-slate-800'
                         }`}>
                           {v}
                         </span>
@@ -606,7 +615,6 @@ export default function Avaliar() {
                             {i + 1}
                           </span>
                           <span className="text-xs font-bold text-slate-800 truncate">{c.name}</span>
-                          <span className="text-[10px] text-slate-400 font-medium flex-shrink-0">(peso {c.weight})</span>
                         </div>
                         {comment ? (
                           <p className="text-[11px] text-slate-600 mt-1 italic pl-7 line-clamp-2">

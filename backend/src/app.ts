@@ -609,22 +609,43 @@ export function createApp(store: Store) {
         await publish(db, "sistema", s);
     }
   }
+  const lastTickByTenant = new Map<string, number>();
+  function scheduleTick(db: TenantStore) {
+    const last = lastTickByTenant.get(db.tenantId) || 0;
+    if (Date.now() - last < 5 * 60 * 1000) return;
+    lastTickByTenant.set(db.tenantId, Date.now());
+    setTimeout(() => {
+      tick(db).catch((err) => console.error("Erro no tick em background:", err));
+    }, 20);
+  }
+
   app.get(
     "/api/state",
     route(async (req, res) => {
       const { db, user, role } = await context(req);
-      await tick(db);
+      scheduleTick(db);
       const org = await store.get("organizations", db.tenantId);
       const records = await db.allMany([
         "clients", "posts", "clientPosts", "allocations", "employees", "participants",
         "evaluations", "seasons", "cycles", "employeeActions", "penaltyTypes",
         "users", "roles", "imports", "settings", "audit",
       ]);
-      // Autorrecuperação: mantém participantes de ciclos ativos sincronizados com
-      // colaboradores e vínculos sem exigir que o usuário visite outra tela.
-      if (records.cycles!.some((item) => item.status === "ativo"))
-        for (const employee of records.employees!)
-          await syncEmployeeParticipants(db, employee.id, records);
+      // Autorrecuperação inteligente: mantém participantes de ciclos ativos sincronizados com
+      // colaboradores e vínculos apenas para quem ainda não foi inicializado no ciclo ativo.
+      const activeCycles = (records.cycles || []).filter((item) => item.status === "ativo");
+      if (activeCycles.length > 0 && records.employees && records.participants) {
+        const participantKeySet = new Set(
+          records.participants.map((p) => `${p.cycleId}:${p.employeeId}`)
+        );
+        for (const employee of records.employees) {
+          const missingParticipant = activeCycles.some(
+            (c) => !participantKeySet.has(`${c.id}:${employee.id}`)
+          );
+          if (missingParticipant) {
+            await syncEmployeeParticipants(db, employee.id, records);
+          }
+        }
+      }
       const allClients = records.clients!, allPosts = records.posts!, allClientPosts = records.clientPosts!,
         allAllocations = records.allocations!, allEmployees = records.employees!,
         allParticipants = records.participants!, allEvaluations = records.evaluations!,
@@ -1558,12 +1579,14 @@ export function createApp(store: Store) {
             );
           }
         }
-        const participantEvaluations = (await db.all("evaluations")).filter(
-          (evaluation) => evaluation.participantId === participant.id,
-        );
-        // Permite avaliação dupla: cada avaliador submete a sua própria nota.
-        // O bloqueio de duplicata por mesmo avaliador fica abaixo (existing check).
-        const cycle = await must(db, "cycles", participant.cycleId);
+        // Busca avaliação prévia diretamente no banco (otimização de índice em vez de db.all completo)
+        const [cycle, existingRows] = await Promise.all([
+          must(db, "cycles", participant.cycleId),
+          db.query(
+            "SELECT data FROM evaluations WHERE participant_id = ? AND evaluator_id = ?",
+            [participant.id, user.id],
+          ),
+        ]);
         const season = await must(db, "seasons", cycle.seasonId);
         assert(
           cycle.status === "ativo" && season.status === "ativa",
@@ -1577,10 +1600,9 @@ export function createApp(store: Store) {
           season.rules.allowLate || today() <= cycle.deadline,
           "Prazo de avaliação encerrado",
         );
-        const existing = participantEvaluations.find(
-          (e) =>
-            e.participantId === participant.id && e.evaluatorId === user.id,
-        );
+        const existing = existingRows[0]
+          ? JSON.parse(existingRows[0].data)
+          : undefined;
         assert(
           !existing || existing.status === "rascunho",
           "Avaliação já registrada para este colaborador e avaliador",
