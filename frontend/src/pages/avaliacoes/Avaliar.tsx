@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
-  ChevronRight, ChevronLeft, ChevronDown, Send, X, User, MapPin, Hash,
+  ChevronRight, ChevronLeft, ChevronDown, Send, User, MapPin, Hash,
   UserCheck, CheckCircle2, Calendar, Award, Check, Star, FileText,
   Building2, RotateCcw, Save
 } from 'lucide-react';
@@ -229,20 +229,23 @@ export default function Avaliar() {
   return (
     <div className="space-y-4 page-enter mobile-evaluation pb-8">
       {/* ── Fixed / Sticky Employee Header Card ── */}
-      <div className="sticky top-[58px] sm:top-[65px] z-20 bg-white/95 backdrop-blur-md rounded-2xl p-3.5 sm:p-4 shadow-sm border border-slate-200/90 transition-all">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div
+        className="sticky z-30 bg-white/95 backdrop-blur-md rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200/90 transition-all"
+        style={{ position: 'sticky', top: 'var(--topbar-h, 58px)' }}
+      >
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-3">
           {/* Left: Avatar + Colaborador Info */}
-          <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+          <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
             <div className="relative flex-shrink-0">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-slate-900 flex items-center justify-center shadow-md ring-2 ring-blue-500/20">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl overflow-hidden bg-slate-900 flex items-center justify-center shadow-md ring-2 ring-blue-500/20">
                 <Avatar name={employee?.name ?? ''} src={employee?.photo} size="lg" />
               </div>
-              <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full" title="Ativo no ciclo" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-emerald-500 border-2 border-white rounded-full" title="Ativo no ciclo" />
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base sm:text-lg font-extrabold text-slate-800 leading-tight truncate">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <h2 className="text-sm sm:text-lg font-extrabold text-slate-800 leading-tight truncate">
                   {employee?.name}
                 </h2>
                 <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/60">
@@ -250,21 +253,21 @@ export default function Avaliar() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 mt-1.5 font-medium">
-                <div className="flex items-center gap-1.5 truncate" title={`Cliente: ${employee?.client}`}>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500 mt-1 font-medium">
+                <div className="flex items-center gap-1 truncate" title={`Cliente: ${employee?.client}`}>
                   <Building2 size={12} className="text-slate-400 flex-shrink-0" />
                   <span className="truncate">{employee?.client}</span>
                 </div>
-                <div className="flex items-center gap-1.5 truncate" title={`Posto: ${employee?.post}`}>
+                <div className="flex items-center gap-1 truncate" title={`Posto: ${employee?.post}`}>
                   <MapPin size={12} className="text-slate-400 flex-shrink-0" />
                   <span className="truncate">{employee?.post}</span>
                 </div>
-                <div className="flex items-center gap-1.5 truncate" title={`Matrícula: ${employee?.registration}`}>
+                <div className="flex items-center gap-1 truncate" title={`Matrícula: ${employee?.registration}`}>
                   <Hash size={12} className="text-slate-400 flex-shrink-0" />
                   <span>Matrícula: {employee?.registration}</span>
                 </div>
                 {employee?.supervisor && employee?.supervisor !== '—' && (
-                  <div className="flex items-center gap-1.5 truncate" title={`Supervisor: ${employee?.supervisor}`}>
+                  <div className="hidden sm:flex items-center gap-1 truncate" title={`Supervisor: ${employee?.supervisor}`}>
                     <UserCheck size={12} className="text-slate-400 flex-shrink-0" />
                     <span className="truncate">{employee?.supervisor}</span>
                   </div>
@@ -274,24 +277,24 @@ export default function Avaliar() {
           </div>
 
           {/* Right: Progress box + Auto-save indicator */}
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end pt-1.5 sm:pt-0 border-t sm:border-t-0 border-slate-100 flex-shrink-0">
             {hasSavedDraft && (
               <div
-                className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded-xl px-2.5 py-1 shadow-2xs cursor-help"
+                className="flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 rounded-lg sm:rounded-xl px-2 sm:px-2.5 py-0.5 sm:py-1 shadow-2xs cursor-help"
                 title="Suas respostas são salvas automaticamente neste aparelho para você não perder nada se interromper."
               >
-                <Save size={12} className="text-emerald-600" />
+                <Save size={11} className="text-emerald-600" />
                 <span>Rascunho salvo</span>
               </div>
             )}
 
-            <div className="bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 text-center min-w-[130px] shadow-2xs">
-              <div className="text-xs font-bold text-slate-800 flex items-center justify-center gap-1">
-                <User size={13} className="text-blue-600" />
+            <div className="bg-slate-50 border border-slate-200/80 rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 text-center min-w-[105px] sm:min-w-[130px] shadow-2xs ml-auto sm:ml-0">
+              <div className="text-[11px] sm:text-xs font-bold text-slate-800 flex items-center justify-center gap-1">
+                <User size={12} className="text-blue-600" />
                 <span>{evaluated + 1} de {total}</span>
               </div>
-              <div className="text-[10px] text-slate-400 font-medium">colaboradores avaliados</div>
-              <div className="w-full bg-slate-200 h-1.5 rounded-full mt-1 overflow-hidden">
+              <div className="text-[9px] sm:text-[10px] text-slate-400 font-medium">avaliados</div>
+              <div className="w-full bg-slate-200 h-1 sm:h-1.5 rounded-full mt-0.5 overflow-hidden">
                 <div
                   className="bg-blue-600 h-full rounded-full transition-all duration-300"
                   style={{ width: `${completionPct}%` }}
@@ -606,48 +609,6 @@ export default function Avaliar() {
               </div>
             </div>
           )}
-
-          {/* ── Secondary options (Não consigo avaliar / Pular) ── */}
-          <div className="flex flex-col sm:flex-row items-center justify-between bg-slate-50/70 border border-slate-200/70 rounded-xl px-3.5 py-2.5 text-xs gap-2">
-            <button
-              type="button"
-              onClick={async () => {
-                if (!employee) return;
-                const reason = window.prompt('Informe por que não consegue avaliar este colaborador:');
-                if (!reason || reason.trim().length < 3) return;
-                await api('/evaluations', {
-                  participantId: employee.participantId,
-                  status: 'impossivel',
-                  answers: [],
-                  compliment: '',
-                  reason,
-                });
-                if (draftStorageKey) localStorage.removeItem(draftStorageKey);
-                await refresh();
-                notify('Impossibilidade registrada.');
-                setCurrentIdx(0);
-              }}
-              className="flex items-center gap-1.5 text-slate-500 hover:text-rose-600 transition-colors py-1 px-2 rounded-lg hover:bg-rose-50/60"
-            >
-              <X size={14} />
-              <span>Não consigo avaliar este colaborador</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (currentIdx + 1 < total) {
-                  setCurrentIdx(i => i + 1);
-                } else {
-                  setCurrentIdx(0);
-                }
-              }}
-              className="flex items-center gap-1 text-slate-600 font-semibold hover:text-blue-600 transition-colors py-1 px-2 rounded-lg hover:bg-blue-50/60"
-            >
-              <span>Pular colaborador</span>
-              <ChevronRight size={14} />
-            </button>
-          </div>
         </div>
 
         {/* ── Right Panel (Colaboradores na fila) ── */}

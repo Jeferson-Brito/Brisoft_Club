@@ -1007,10 +1007,19 @@ td:first-child {
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
   }
+  :root {
+    --topbar-h: 58px;
+  }
   .app-topbar {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 40 !important;
     padding: 0 12px;
-    height: 58px;
+    height: 58px !important;
     gap: 8px;
+    background: rgba(255, 255, 255, 0.96) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
   }
   .user-button > span {
     display: none;
@@ -1176,6 +1185,7 @@ td:first-child {
 
 /* Minimal visual system — preserves the product layout and hierarchy. */
 :root {
+  --topbar-h: 60px;
   --minimal-canvas: #f3f6f5;
   --minimal-surface: #ffffff;
   --minimal-subtle: #f7faf8;
@@ -1193,13 +1203,17 @@ body,
   background: var(--minimal-canvas);
 }
 .app-topbar {
-  height: 60px;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: var(--topbar-h);
   gap: 14px;
   padding-inline: 20px;
   background: rgb(255 255 255 / 94%);
   border-color: var(--minimal-border);
-  box-shadow: none;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.03);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 .global-search input {
   min-height: 38px;
@@ -1649,9 +1663,9 @@ tbody tr:hover {
   }
 }
 @media (max-width: 768px) {
-  /* Prevent horizontal accidental scroll */
+  /* Prevent horizontal accidental scroll without disabling position: sticky */
   body, html {
-    overflow-x: hidden;
+    overflow-x: clip;
   }
   /* Improve tap targets */
   button, input, select, textarea, a {

@@ -9,7 +9,7 @@ import {
   NavLink,
   useLocation,
 } from "react-router-dom";
-import { Menu, Bell, Search, LogOut, LayoutDashboard, Star, Clock, Trophy } from "lucide-react";
+import { Menu, Bell, Search, LogOut, LayoutDashboard, Star, Clock, Trophy, CheckCircle2 } from "lucide-react";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Avatar } from "./components/ui/Avatar";
 import { api, DataProvider, useData } from "./app/state";
@@ -177,13 +177,9 @@ function Layout({ logout }: { logout: () => void }) {
       <div className="app-main">
         <header className="app-topbar">
           <button
-            className="icon-btn"
+            className="icon-btn hidden md:inline-flex"
             aria-label="Alternar menu"
-            onClick={() =>
-              window.innerWidth < 900
-                ? setMobile(!mobile)
-                : setCollapsed(!collapsed)
-            }
+            onClick={() => setCollapsed(!collapsed)}
           >
             <Menu size={20} />
           </button>
@@ -285,18 +281,17 @@ function Layout({ logout }: { logout: () => void }) {
         {/* ── Barra de Navegação Inferior para Mobile ── */}
         <nav className="mobile-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_16px_rgba(15,23,42,0.06)] px-2 py-1 flex items-center justify-around">
           <NavLink
-            to="/"
-            end
-            className={({ isActive }) => `flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors ${isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+            to="/ranking/geral"
+            className={({ isActive }) => `flex flex-col items-center justify-center py-1 px-3 rounded-lg transition-colors ${isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
           >
-            <LayoutDashboard size={19} />
-            <span className="text-[10px] mt-0.5">Início</span>
+            <Trophy size={19} />
+            <span className="text-[10px] mt-0.5">Ranking</span>
           </NavLink>
 
           {evaluator && (
             <NavLink
               to="/avaliacoes/avaliar"
-              className={({ isActive }) => `relative flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors ${isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+              className={({ isActive }) => `relative flex flex-col items-center justify-center py-1 px-3 rounded-lg transition-colors ${isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
             >
               <Star size={19} />
               <span className="text-[10px] mt-0.5">Avaliar</span>
@@ -311,31 +306,31 @@ function Layout({ logout }: { logout: () => void }) {
           {evaluator && (
             <NavLink
               to="/avaliacoes/pendentes"
-              className={({ isActive }) => `flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors ${isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+              className={({ isActive }) => `flex flex-col items-center justify-center py-1 px-3 rounded-lg transition-colors ${isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
             >
               <Clock size={19} />
               <span className="text-[10px] mt-0.5">Pendentes</span>
             </NavLink>
           )}
 
-          {data.role.permissions.includes("ranking") && (
+          {evaluator ? (
             <NavLink
-              to="/ranking/geral"
-              className={({ isActive }) => `flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-colors ${isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+              to="/avaliacoes/concluidas"
+              className={({ isActive }) => `flex flex-col items-center justify-center py-1 px-3 rounded-lg transition-colors ${isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
             >
-              <Trophy size={19} />
-              <span className="text-[10px] mt-0.5">Ranking</span>
+              <CheckCircle2 size={19} />
+              <span className="text-[10px] mt-0.5">Concluídas</span>
+            </NavLink>
+          ) : (
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) => `flex flex-col items-center justify-center py-1 px-3 rounded-lg transition-colors ${isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+            >
+              <LayoutDashboard size={19} />
+              <span className="text-[10px] mt-0.5">Início</span>
             </NavLink>
           )}
-
-          <button
-            onClick={() => setMobile(true)}
-            className="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-slate-500 hover:text-slate-800 transition-colors"
-            aria-label="Abrir menu completo"
-          >
-            <Menu size={19} />
-            <span className="text-[10px] mt-0.5">Mais</span>
-          </button>
         </nav>
       </div>
       <ContextHelp />
