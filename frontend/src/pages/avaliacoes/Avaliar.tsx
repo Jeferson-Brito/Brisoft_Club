@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import {
   ChevronRight, ChevronLeft, ChevronDown, Send, User, MapPin, Hash,
   UserCheck, CheckCircle2, Calendar, Award, Check, Star, FileText,
-  Building2, RotateCcw, Save
+  Building2, RotateCcw, Save, X, Pencil
 } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { api } from '../../app/state';
@@ -34,6 +34,7 @@ export default function Avaliar() {
   const [currentCriterionIdx, setCurrentCriterionIdx] = useState(0);
   const [step, setStep] = useState<'criterion' | 'summary'>('criterion');
   const [hasSavedDraft, setHasSavedDraft] = useState(false);
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
 
   const criteria = useMemo(() => (season?.rules?.criteria || []).map((criterion: any, index: number) => ({
     id: String(criterion.id),
@@ -86,14 +87,36 @@ export default function Avaliar() {
       // Ignorar erros de parse
     }
 
-    // Se não há rascunho, reiniciar para estado limpo
+    // Se não há rascunho local, verificar se o colaborador já possui avaliação gravada no banco (ex: avaliação reaberta)
+    const existing = data?.evaluations?.find(
+      (item: any) => item.participantId === employee?.participantId && item.evaluatorId === data.user?.id
+    );
+    if (existing && existing.answers && existing.answers.length > 0) {
+      const initialRatings: Ratings = {};
+      const initialComments: { [key: string]: string } = {};
+      existing.answers.forEach((ans: any) => {
+        if (ans.criterionId) {
+          initialRatings[String(ans.criterionId)] = Number(ans.score ?? ans.value ?? 0);
+          if (ans.comment) initialComments[String(ans.criterionId)] = ans.comment;
+        }
+      });
+      setRatings(initialRatings);
+      setComments(initialComments);
+      setCompliment(existing.compliment || '');
+      setCurrentCriterionIdx(0);
+      setStep('criterion');
+      setHasSavedDraft(true);
+      return;
+    }
+
+    // Se não há rascunho nem avaliação prévia, reiniciar para estado limpo
     setRatings({});
     setComments({});
     setCompliment('');
     setCurrentCriterionIdx(0);
     setStep('criterion');
     setHasSavedDraft(false);
-  }, [draftStorageKey, criteria.length]);
+  }, [draftStorageKey, criteria.length, employee?.participantId, data?.evaluations, data?.user?.id]);
 
   // 2. Salvar rascunho automaticamente a cada mudança
   useEffect(() => {
@@ -237,10 +260,15 @@ export default function Avaliar() {
           {/* Left: Avatar + Colaborador Info */}
           <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
             <div className="relative flex-shrink-0">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl overflow-hidden bg-slate-900 flex items-center justify-center shadow-md ring-2 ring-blue-500/20">
+              <button
+                type="button"
+                onClick={() => setPhotoModalOpen(true)}
+                className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl overflow-hidden bg-slate-900 flex items-center justify-center shadow-md ring-2 ring-blue-500/20 hover:ring-blue-500/60 hover:scale-105 active:scale-95 transition-all cursor-pointer group"
+                title="Clique para ampliar a foto do colaborador"
+              >
                 <Avatar name={employee?.name ?? ''} src={employee?.photo} size="lg" />
-              </div>
-              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-emerald-500 border-2 border-white rounded-full" title="Ativo no ciclo" />
+              </button>
+              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-emerald-500 border-2 border-white rounded-full pointer-events-none" title="Ativo no ciclo" />
             </div>
 
             <div className="min-w-0 flex-1">
@@ -666,6 +694,63 @@ export default function Avaliar() {
             </div>
           </details>
 
+          {/* Já avaliados neste ciclo */}
+          {data?.evaluations && cycle?.id && (
+            (() => {
+              const completedInCycle = data.evaluations
+                .filter((e: any) => e.cycleId === cycle.id && e.evaluatorId === data.user?.id && e.status === 'enviada')
+                .map((e: any) => ({
+                  id: e.id,
+                  participantId: e.participantId,
+                  employee: e.snapshot?.name || '—',
+                  photo: e.snapshot?.photo || '',
+                  role: e.snapshot?.role || '—',
+                  score: e.score || 0,
+                }));
+              if (!completedInCycle.length) return null;
+              return (
+                <details className="bg-white rounded-2xl p-3.5 shadow-xs border border-slate-200/80 group">
+                  <summary className="flex items-center justify-between cursor-pointer font-bold text-slate-700 text-xs uppercase tracking-wider mb-1 lg:mb-2.5">
+                    <span>Já avaliados ({completedInCycle.length})</span>
+                    <ChevronDown size={14} className="text-slate-400 group-open:rotate-180 transition-transform" />
+                  </summary>
+                  <div className="space-y-1.5 pt-1 max-h-[260px] overflow-y-auto pr-1">
+                    {completedInCycle.map((ev: any) => (
+                      <div key={ev.id} className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Avatar name={ev.employee} src={ev.photo} size="sm" />
+                          <div className="min-w-0">
+                            <div className="font-semibold text-slate-800 truncate">{ev.employee}</div>
+                            <div className="text-[10px] text-slate-400 truncate">{ev.role} · {ev.score} pts</div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const confirmed = window.confirm(`Deseja reabrir a avaliação de ${ev.employee} para alterar nota, comentários ou elogio?`);
+                            if (!confirmed) return;
+                            try {
+                              await api(`/evaluations/${ev.id}/reopen`, { reason: 'Reavaliação solicitada pelo usuário' });
+                              await refresh();
+                              notify('Avaliação reaberta com sucesso! Carregando dados...');
+                            } catch (err: any) {
+                              notify(err?.message || 'Erro ao reabrir avaliação.');
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+                          title="Reabrir e alterar nota desta avaliação"
+                        >
+                          <Pencil size={11} />
+                          <span>Reavaliar</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              );
+            })()
+          )}
+
           {/* Cycle info */}
           <details className="lg:open bg-white rounded-2xl p-3.5 shadow-xs border border-slate-200/80 group">
             <summary className="flex items-center justify-between cursor-pointer font-bold text-slate-700 text-xs uppercase tracking-wider mb-1 lg:mb-2.5">
@@ -692,6 +777,58 @@ export default function Avaliar() {
           </details>
         </div>
       </div>
+
+      {/* ── Modal de visualização ampliada da foto do colaborador ── */}
+      {photoModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in"
+          onClick={() => setPhotoModalOpen(false)}
+        >
+          <div
+            className="relative bg-white rounded-3xl p-5 sm:p-6 shadow-2xl border border-slate-200/90 max-w-xs sm:max-w-sm w-full text-center space-y-3.5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setPhotoModalOpen(false)}
+              className="absolute top-3.5 right-3.5 p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              aria-label="Fechar ampliação"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="w-48 h-48 sm:w-60 sm:h-60 mx-auto rounded-2xl overflow-hidden bg-slate-900 shadow-md ring-4 ring-blue-100 flex items-center justify-center">
+              {employee?.photo ? (
+                <img
+                  src={employee.photo}
+                  alt={employee.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-white bg-gradient-to-br from-blue-600 to-indigo-700">
+                  <span className="text-5xl font-black">{employee?.name?.charAt(0)}</span>
+                  <span className="text-xs text-blue-200 mt-2">Sem foto cadastrada</span>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h3 className="text-base sm:text-lg font-black text-slate-800 leading-tight">
+                {employee?.name}
+              </h3>
+              <p className="text-xs text-blue-600 font-bold mt-0.5">
+                {employee?.role || 'Colaborador'}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                {employee?.client} · {employee?.post}
+              </p>
+              <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                Matrícula: {employee?.registration}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { CheckCircle2, Users, Star, FileText, Filter, Download, Eye, Calendar } from 'lucide-react';
+import { CheckCircle2, Users, Star, FileText, Filter, Download, Eye, Calendar, Pencil } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { usePhotoData } from '../../app/photo-data';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { api } from '../../app/state';
 
 export default function Concluidas() {
-  const { evaluations: allEvaluations, clients, cycle } = usePhotoData();
+  const { evaluations: allEvaluations, clients, cycle, data, refresh, notify } = usePhotoData();
+  const navigate = useNavigate();
   const evaluations = allEvaluations.filter(item => ['enviada', 'cancelada'].includes(item.status));
   const completedEvaluations = evaluations.filter(item => item.status === 'enviada');
   const [filterTab, setFilterTab] = useState<'todas' | 'elogio' | 'semelogio' | 'canceladas'>('todas');
@@ -18,6 +20,29 @@ export default function Concluidas() {
   const [minScore, setMinScore] = useState('');
   const [maxScore, setMaxScore] = useState('');
   const [selectedRows, setSelectedRows] = useState<Array<string | number>>([]);
+
+  const canReopen = (row: any) => {
+    return (
+      cycle?.status === 'ativo' &&
+      row.status !== 'rascunho' &&
+      (data.role.permissions.includes('evaluations') || (data.role.permissions.includes('evaluate') && row.evaluatorId === data.user.id))
+    );
+  };
+
+  const handleReopen = async (row: any) => {
+    const confirmed = window.confirm(
+      `Deseja reabrir a avaliação de ${row.employee}? Você poderá alterar as notas, justificativas e elogio.`
+    );
+    if (!confirmed) return;
+    try {
+      await api(`/evaluations/${row.id}/reopen`, { reason: 'Reavaliação solicitada pelo usuário' });
+      await refresh();
+      notify('Avaliação reaberta com sucesso! Abrindo tela para reavaliação...');
+      navigate(`/avaliacoes/avaliar?colaborador=${row.participantId}`);
+    } catch (err: any) {
+      notify(err?.message || 'Erro ao reabrir avaliação.');
+    }
+  };
 
   const filtered = evaluations.filter(item => {
     const matchesTab = filterTab === 'elogio'
@@ -340,13 +365,25 @@ export default function Concluidas() {
                 </div>
               </div>
 
-              <Link
-                to={`/avaliacoes/historico?evaluation=${row.id}`}
-                className="w-full flex items-center justify-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs py-2 px-3 rounded-lg transition-colors"
-              >
-                <Eye size={13} />
-                <span>Ver detalhes da avaliação</span>
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  to={`/avaliacoes/historico?evaluation=${row.id}`}
+                  className="flex-1 flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2 px-3 rounded-lg transition-colors"
+                >
+                  <Eye size={13} />
+                  <span>Ver detalhes</span>
+                </Link>
+                {canReopen(row) && (
+                  <button
+                    type="button"
+                    onClick={() => handleReopen(row)}
+                    className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 px-3 rounded-lg transition-colors shadow-2xs cursor-pointer"
+                  >
+                    <Pencil size={13} />
+                    <span>Reavaliar</span>
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
@@ -442,11 +479,22 @@ export default function Concluidas() {
                       </span>
                     </td>
                     <td className="py-2 px-3 whitespace-nowrap text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Link to={`/avaliacoes/historico?evaluation=${row.id}`} className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 bg-blue-50/70 hover:bg-blue-100/70 font-semibold text-[11px] px-2 py-0.5 rounded-md transition-colors">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <Link to={`/avaliacoes/historico?evaluation=${row.id}`} className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 font-semibold text-[11px] px-2 py-1 rounded-md transition-colors">
                           <Eye size={12} />
                           <span>Ver</span>
                         </Link>
+                        {canReopen(row) && (
+                          <button
+                            type="button"
+                            onClick={() => handleReopen(row)}
+                            className="inline-flex items-center gap-1 text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 font-bold text-[11px] px-2 py-1 rounded-md transition-colors cursor-pointer"
+                            title="Reabrir e alterar notas desta avaliação"
+                          >
+                            <Pencil size={12} />
+                            <span>Reavaliar</span>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

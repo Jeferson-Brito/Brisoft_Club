@@ -155,14 +155,36 @@ export function DetailModal({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
-    ref.current?.showModal();
-  }, []);
+    const dialog = ref.current;
+    if (dialog && !dialog.open) {
+      try {
+        dialog.showModal();
+      } catch {
+        // ignore if already open
+      }
+    }
+    const handleCancel = (e: Event) => {
+      e.preventDefault();
+      onClose();
+    };
+    dialog?.addEventListener("cancel", handleCancel);
+    return () => {
+      dialog?.removeEventListener("cancel", handleCancel);
+      if (dialog && dialog.open) {
+        try {
+          dialog.close();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, [onClose]);
+
   return (
     <dialog
       ref={ref}
       className="detail-modal"
       aria-label={label}
-      onCancel={onClose}
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}

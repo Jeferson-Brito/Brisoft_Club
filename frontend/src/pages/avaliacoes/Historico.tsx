@@ -8,13 +8,14 @@ import { Avatar } from '../../components/ui/Avatar';
 import { DetailModal } from '../../app/ui';
 import { usePhotoData } from '../../app/photo-data';
 import { api } from '../../app/state';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 
 type DrawerTab = 'avaliacao' | 'elogio' | 'historico';
 
 export default function Historico() {
   const { evaluations, season: _season, data, refresh, notify } = usePhotoData();
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const [selectedEval, setSelectedEval] = useState<any>(null);
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('avaliacao');
   const [selectedSeason, setSelectedSeason] = useState('');
@@ -55,14 +56,21 @@ export default function Historico() {
 
   useEffect(() => {
     const requested = params.get('evaluation');
-    if (requested) setSelectedEval(evaluations.find(item => String(item.id) === requested) || null);
+    if (requested) {
+      const found = evaluations.find(item => String(item.id) === requested);
+      setSelectedEval(found || null);
+    } else {
+      setSelectedEval(null);
+    }
   }, [params, evaluations]);
 
   const closeDetails = () => {
-    const next = new URLSearchParams(params);
-    next.delete('evaluation');
-    setParams(next, { replace: true });
     setSelectedEval(null);
+    if (params.get('evaluation')) {
+      const next = new URLSearchParams(params);
+      next.delete('evaluation');
+      setParams(next, { replace: true });
+    }
   };
 
   const selectCls = 'w-full text-xs font-medium border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-700 outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer';
@@ -508,23 +516,27 @@ export default function Historico() {
                   >
                     ← Voltar para a lista
                   </button>
-                  {data.role.permissions.includes('evaluations') && selectedEval.status !== 'rascunho' && selectedEvalCycle?.status === 'ativo' && <button
-                    onClick={async () => {
-                      const reason = window.prompt('Motivo da reabertura para correção:');
-                      if (!reason) return;
-                      try {
-                        await api(`/evaluations/${selectedEval.id}/reopen`, { reason });
-                        await refresh();
-                        closeDetails();
-                        notify('Avaliação reaberta para correção.');
-                      } catch (error) {
-                        notify((error as Error).message);
-                      }
-                    }}
-                    className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors shadow-2xs">
-                    <Pencil size={11} />
-                    <span>Reabrir avaliação</span>
-                  </button>}
+                  {(data.role.permissions.includes('evaluations') || (data.role.permissions.includes('evaluate') && selectedEval.evaluatorId === data.user.id)) && selectedEval.status !== 'rascunho' && selectedEvalCycle?.status === 'ativo' && (
+                    <button
+                      onClick={async () => {
+                        const reason = window.prompt('Informe o motivo da alteração de notas ou comentários:', 'Reavaliação solicitada pelo avaliador');
+                        if (reason === null) return;
+                        try {
+                          await api(`/evaluations/${selectedEval.id}/reopen`, { reason: reason || 'Reavaliação solicitada' });
+                          await refresh();
+                          closeDetails();
+                          notify('Avaliação reaberta com sucesso! Abrindo tela para reavaliação...');
+                          navigate(`/avaliacoes/avaliar?colaborador=${selectedEval.participantId}`);
+                        } catch (error) {
+                          notify((error as Error).message);
+                        }
+                      }}
+                      className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors shadow-2xs cursor-pointer"
+                    >
+                      <Pencil size={11} />
+                      <span>Reabrir e Reavaliar</span>
+                    </button>
+                  )}
                 </div>
               </div>
             )}

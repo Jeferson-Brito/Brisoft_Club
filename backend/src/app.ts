@@ -1621,7 +1621,13 @@ export function createApp(store: Store) {
   app.post(
     "/api/evaluations/:id/:action",
     route(async (req, res) => {
-      const { db, user, role } = await context(req, "evaluations");
+      const { db, user, role } = await context(req);
+      assert(
+        role.permissions.includes("evaluations") ||
+          (role.permissions.includes("evaluate") && req.params.action === "reopen"),
+        "Sem permissão para esta ação",
+        403,
+      );
       await store.transaction(async () => {
         const e = await must(db, "evaluations", String(req.params.id));
         assert(
@@ -1641,12 +1647,17 @@ export function createApp(store: Store) {
             "Reabertura permitida apenas em ciclo ativo",
           );
           assert(e.status !== "rascunho", "Avaliação já está em preenchimento");
-          const reason = z
-            .string()
-            .trim()
-            .min(3)
-            .max(500)
-            .parse(req.body.reason);
+          if (!role.permissions.includes("evaluations")) {
+            assert(
+              e.evaluatorId === user.id,
+              "Você só pode reabrir sua própria avaliação",
+              403,
+            );
+          }
+          const rawReason = req.body?.reason?.trim();
+          const reason = rawReason && rawReason.length >= 3
+            ? z.string().trim().min(3).max(500).parse(rawReason)
+            : "Reavaliação solicitada pelo avaliador";
           await db.put("evaluations", {
             ...e,
             status: "rascunho",

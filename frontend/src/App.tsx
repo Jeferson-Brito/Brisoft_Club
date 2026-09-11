@@ -77,6 +77,7 @@ function Layout({ logout }: { logout: () => void }) {
   const [password, setPassword] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const evaluator = data.role.permissions.includes("evaluate");
 
@@ -86,18 +87,21 @@ function Layout({ logout }: { logout: () => void }) {
     setNotifications(false);
   }, [location.pathname]);
 
-  // Click outside to close user dropdown menu
+  // Click outside to close user dropdown menu and notifications panel
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false);
       }
+      if (notificationsRef.current && !notificationsRef.current.contains(e.target as Node)) {
+        setNotifications(false);
+      }
     };
-    if (userMenuOpen) {
+    if (userMenuOpen || notifications) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [userMenuOpen]);
+  }, [userMenuOpen, notifications]);
 
   const pending = data.participants.filter(
     (p) =>
@@ -139,14 +143,29 @@ function Layout({ logout }: { logout: () => void }) {
 
           <div className="topbar-right ml-auto flex items-center gap-3">
             {evaluator && (
-              <button
-                className="icon-btn notification-button"
-                aria-label="Notificações"
-                onClick={() => setNotifications(!notifications)}
-              >
-                <Bell size={19} />
-                {pending > 0 && <span>{pending}</span>}
-              </button>
+              <div className="relative" ref={notificationsRef}>
+                <button
+                  className="icon-btn notification-button cursor-pointer"
+                  aria-label="Notificações"
+                  onClick={() => setNotifications((prev) => !prev)}
+                >
+                  <Bell size={19} />
+                  {pending > 0 && <span>{pending}</span>}
+                </button>
+
+                {notifications && (
+                  <div className="notification-panel">
+                    <h3>Seu acompanhamento</h3>
+                    <p>{pending} colaboradores disponíveis para avaliação.</p>
+                    <Link
+                      to="/avaliacoes/pendentes"
+                      onClick={() => setNotifications(false)}
+                    >
+                      Ver pendências →
+                    </Link>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Menu suspenso ao clicar na foto do usuário */}
@@ -202,19 +221,6 @@ function Layout({ logout }: { logout: () => void }) {
               )}
             </div>
           </div>
-
-          {evaluator && notifications && (
-            <div className="notification-panel">
-              <h3>Seu acompanhamento</h3>
-              <p>{pending} colaboradores disponíveis para avaliação.</p>
-              <Link
-                to="/avaliacoes/pendentes"
-                onClick={() => setNotifications(false)}
-              >
-                Ver pendências →
-              </Link>
-            </div>
-          )}
         </header>
         <main className="page-content pb-20 md:pb-6" key={location.pathname}>
           <Outlet />
