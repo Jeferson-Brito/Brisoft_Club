@@ -1350,6 +1350,19 @@ export function createApp(store: Store) {
           version: settings.version + 1,
           updatedAt: now(),
         });
+        const seasons = await db.all("seasons");
+        for (const s of seasons) {
+          if (s.status === "ativa" || s.status === "planejada") {
+            await db.put("seasons", {
+              ...s,
+              rules: {
+                ...s.rules,
+                allowReevaluate: rules.allowReevaluate,
+              },
+              updatedAt: now(),
+            });
+          }
+        }
         await audit(db, user.id, "alterar_regulamento", settings.id, {
           version: settings.version + 1,
           rules,

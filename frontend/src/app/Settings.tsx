@@ -39,7 +39,7 @@ export function Settings() {
         {[
           ["scale", "Escala de notas"],
           ["criteria", "Critérios"],
-          ["program", "Programa e ranking"],
+          ["program", "Regras e programa"],
           ["penalties", "Penalidades"],
           ["access", "Acesso de colaboradores"],
           ["history", "Versões e auditoria"],
@@ -392,7 +392,10 @@ export function Settings() {
                   "Publicar automaticamente na data de divulgação",
                 ],
               ].map(([key, label]) => (
-                <label key={key}>
+                <label
+                  key={key}
+                  style={key === "allowReevaluate" ? { background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '10px', fontWeight: 600, color: '#1e3a8a' } : undefined}
+                >
                   <input
                     type="checkbox"
                     checked={key === "allowReevaluate" ? rules[key] !== false : !!rules[key]}
