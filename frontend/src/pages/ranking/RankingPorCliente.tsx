@@ -19,13 +19,9 @@ export default function RankingPorCliente() {
 
   const ordered = [...displayEmployees].sort((a, b) => b.score - a.score);
   const clientEvaluated = ordered.filter(item => Number(item.score || 0) > 0);
-  const isGold = (item: any) => ['ouro', 'diamante'].includes(String(item.badge || '').toLowerCase());
-  const isSilver = (item: any) => String(item.badge || '').toLowerCase() === 'prata';
-  const isBronze = (item: any) => String(item.badge || '').toLowerCase() === 'bronze';
-
-  const clientGold = clientEvaluated.filter(isGold)[0] || null;
-  const clientSilver = clientEvaluated.filter(isSilver)[0] || null;
-  const clientBronze = clientEvaluated.filter(isBronze)[0] || null;
+  const clientGold = clientEvaluated[0] || null;
+  const clientSilver = clientEvaluated[1] || null;
+  const clientBronze = clientEvaluated[2] || null;
 
   const filteredClients = clients.filter(c =>
     c.name.toLowerCase().includes(clientSearch.toLowerCase())
@@ -42,6 +38,19 @@ export default function RankingPorCliente() {
 
   return (
     <div className="space-y-3.5 page-enter">
+      {/* ── Cabeçalho da Página Padrão Corporativo Grupo Combate ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 pb-1">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#071e4d] text-white flex items-center justify-center shadow-xs flex-shrink-0">
+            <Trophy size={20} />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 leading-tight">Ranking por Cliente</h1>
+            <p className="text-xs text-slate-500 font-medium">Classificação e desempenho dos colaboradores por empresa parceira.</p>
+          </div>
+        </div>
+      </div>
+
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-xs flex items-center gap-3">
@@ -166,7 +175,7 @@ export default function RankingPorCliente() {
                   <div className="flex flex-col items-center min-w-0 z-10">
                     {clientGold ? (
                       <div className="flex flex-col items-center w-full mb-1">
-                        <Crown size={14} className="text-amber-500 fill-amber-400 mb-0.5" />
+                        <Crown size={16} className="text-amber-500 fill-amber-400 mb-0.5 animate-crown-float" />
                         <span className="text-[9px] font-extrabold text-amber-700 mb-0.5">🥇 1º</span>
                         <div className="w-12 h-12 rounded-full ring-3 ring-amber-400 ring-offset-1 overflow-hidden shadow-xs mb-1">
                           <Avatar name={clientGold.name} src={clientGold.photo} size="md" />
@@ -289,7 +298,7 @@ export default function RankingPorCliente() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
                   <thead>
-                    <tr className="bg-slate-50/80 text-slate-500 font-semibold border-b border-slate-200/80 text-[11px] whitespace-nowrap">
+                    <tr className="bg-[#071e4d] text-white font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
                       <th className="py-2.5 px-3 text-center w-10">#</th>
                       <th className="py-2.5 px-3">Colaborador</th>
                       <th className="py-2.5 px-3">Matrícula</th>

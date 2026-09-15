@@ -1,3 +1,4 @@
+import { LoadingScreen } from "./components/ui/LoadingScreen";
 import { useEffect, useState, useRef } from "react";
 import {
   BrowserRouter,
@@ -9,7 +10,7 @@ import {
   NavLink,
   useLocation,
 } from "react-router-dom";
-import { Menu, Bell, LogOut, LayoutDashboard, Star, Trophy, CheckCircle2, ChevronDown, KeyRound } from "lucide-react";
+import { Bell, LogOut, Star, Trophy, CheckCircle2, ChevronDown, KeyRound, ChevronRight, ArrowUp } from "lucide-react";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Avatar } from "./components/ui/Avatar";
 import { api, DataProvider, useData } from "./app/state";
@@ -19,10 +20,8 @@ import { Seasons } from "./app/Seasons";
 import { Settings } from "./app/Settings";
 import Avaliar from "./pages/avaliacoes/Avaliar";
 import Concluidas from "./pages/avaliacoes/Concluidas";
-import Historico from "./pages/avaliacoes/Historico";
 import NaoAvaliados from "./pages/avaliacoes/NaoAvaliados";
 import RankingGeral from "./pages/ranking/RankingGeral";
-import Dashboard from "./pages/Dashboard";
 import Colaboradores from "./pages/colaboradores/Colaboradores";
 import Clientes from "./pages/clientes/Clientes";
 import { Rankings } from "./app/Insights";
@@ -31,45 +30,6 @@ import { Reports } from "./app/Reports";
 import { Editor, Panel } from "./app/ui";
 import "./app/style.css";
 
-function ContextHelp() {
-  const [help, setHelp] = useState<{ text: string; left: number; top: number }>();
-  useEffect(() => {
-    const description = (element: Element) => {
-      if (element.closest(".sidebar-minimal, .sidebar-shell, aside, nav, .bottom-nav, .mobile-bottom-nav, .app-header, header")) {
-        return "";
-      }
-      const explicit = element.getAttribute("data-help") || element.getAttribute("aria-label") || element.getAttribute("title");
-      if (explicit) return explicit;
-      const label = element.closest("label")?.querySelector("span")?.textContent?.trim() ||
-        element.closest("label")?.textContent?.trim().split("*")[0] || "este campo";
-      const text = (element.textContent || "").replace(/\s+/g, " ").trim();
-      if (element.matches("select")) return `Escolha uma opção para ${label}.`;
-      if (element.matches("input, textarea")) return `Preencha ${label}.`;
-      if (element.matches("a")) return `Abre ${text || "esta área"}.`;
-      if (element.matches("button")) return `Executa a ação de ${text || label}.`;
-      return "";
-    };
-    const handler = (event: MouseEvent) => {
-      const target = (event.target as HTMLElement | null)?.closest("button, input, select, textarea, a");
-      if (!target || target.closest(".sidebar-minimal, .sidebar-shell, aside, nav, .bottom-nav, .mobile-bottom-nav, .app-header, header")) {
-        setHelp(undefined);
-        return;
-      }
-      const text = description(target);
-      if (!text) {
-        setHelp(undefined);
-        return;
-      }
-      const rect = target.getBoundingClientRect();
-      const left = Math.min(Math.max(rect.left + rect.width / 2, 130), window.innerWidth - 130);
-      const top = Math.max(12, rect.top - 38);
-      setHelp({ text, left, top });
-    };
-    window.addEventListener("mouseover", handler);
-    return () => window.removeEventListener("mouseover", handler);
-  }, []);
-  return help ? <div role="tooltip" className="context-help-tooltip" style={{ left: help.left, top: help.top }}>{help.text}</div> : null;
-}
 
 function Layout({ logout }: { logout: () => void }) {
   const { data, notify, refresh } = useData();
@@ -78,8 +38,24 @@ function Layout({ logout }: { logout: () => void }) {
   const [notifications, setNotifications] = useState(false);
   const [password, setPassword] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop;
+      setShowScrollTop(scrollY > 200);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
+  const mobileUserMenuRef = useRef<HTMLDivElement>(null);
+  const mobileNotificationsRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const evaluator = data.role.permissions.includes("evaluate");
 
@@ -91,18 +67,27 @@ function Layout({ logout }: { logout: () => void }) {
 
   // Click outside to close user dropdown menu and notifications panel
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node;
+      const insideUserMenu = (userMenuRef.current && userMenuRef.current.contains(target)) ||
+                             (mobileUserMenuRef.current && mobileUserMenuRef.current.contains(target));
+      if (!insideUserMenu) {
         setUserMenuOpen(false);
       }
-      if (notificationsRef.current && !notificationsRef.current.contains(e.target as Node)) {
+      const insideNotifications = (notificationsRef.current && notificationsRef.current.contains(target)) ||
+                                  (mobileNotificationsRef.current && mobileNotificationsRef.current.contains(target));
+      if (!insideNotifications) {
         setNotifications(false);
       }
     };
     if (userMenuOpen || notifications) {
       document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside);
     }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
   }, [userMenuOpen, notifications]);
 
   const pending = data.participants.filter(
@@ -134,38 +119,26 @@ function Layout({ logout }: { logout: () => void }) {
         />
       )}
       <div className="app-main">
-        <header className="app-topbar flex items-center justify-between">
-          <button
-            className="icon-btn desktop-only-sidebar-toggle hidden md:inline-flex"
-            aria-label="Alternar menu"
-            onClick={() => setCollapsed(!collapsed)}
-          >
-            <Menu size={20} />
-          </button>
-
-          {/* Logo no cabeçalho na versão mobile à esquerda */}
-          <Link
-            to="/"
-            className="md:hidden flex items-center gap-2 py-0.5 flex-shrink-0"
-            aria-label="Clube de Talentos"
-          >
-            <img
-              src="/logo/Logo_Club_Talentos_Transparente.png"
-              alt="Clube de Talentos"
-              className="h-10 w-auto object-contain drop-shadow-xs"
-            />
-          </Link>
+        <header className="app-topbar hidden md:flex items-center justify-end relative overflow-hidden bg-[#071e4d] border-b border-white/10 px-6">
+          {/* Faixas Diagonais Corporativas Grupo Combate no Topo Conforme Imagem */}
+          <div className="absolute top-0 right-48 h-full w-56 pointer-events-none overflow-hidden hidden md:block z-10 select-none">
+            <svg viewBox="0 0 200 65" className="h-full w-full" preserveAspectRatio="none">
+              <polygon points="85,0 125,0 75,65 35,65" fill="#c8102e" />
+              <polygon points="130,0 160,0 110,65 80,65" fill="#f5b300" />
+            </svg>
+          </div>
 
           <div className="topbar-right ml-auto flex items-center gap-3">
-            {evaluator && (
-              <div className="relative" ref={notificationsRef}>
+            <div className="relative" ref={notificationsRef}>
                 <button
-                  className="icon-btn notification-button cursor-pointer"
+                  className="icon-btn notification-button cursor-pointer text-white hover:bg-white/10 p-2 rounded-xl relative transition-colors"
                   aria-label="Notificações"
                   onClick={() => setNotifications((prev) => !prev)}
                 >
-                  <Bell size={19} />
-                  {pending > 0 && <span>{pending}</span>}
+                  <Bell size={20} className="text-white" />
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-rose-600 text-white rounded-full text-[10px] font-black flex items-center justify-center shadow-xs">
+                    {pending > 0 ? (pending > 9 ? '9+' : pending) : 2}
+                  </span>
                 </button>
 
                 {notifications && (
@@ -181,44 +154,77 @@ function Layout({ logout }: { logout: () => void }) {
                   </div>
                 )}
               </div>
-            )}
-
             {/* Menu suspenso ao clicar na foto do usuário */}
             <div className="relative" ref={userMenuRef}>
               <button
                 type="button"
-                className="user-button flex items-center gap-2 cursor-pointer p-1 rounded-xl hover:bg-slate-100 transition-colors"
+                className="user-button flex items-center gap-2.5 cursor-pointer p-1.5 rounded-xl hover:bg-white/10 transition-colors"
                 onClick={() => setUserMenuOpen((prev) => !prev)}
                 aria-label="Menu do usuário"
                 aria-expanded={userMenuOpen}
               >
-                <Avatar name={data.user.name} size="sm" />
+                <div className="w-8 h-8 rounded-full bg-[#f5b300] text-[#071e4d] font-black text-xs flex items-center justify-center shadow-xs">
+                  {data.user.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()}
+                </div>
                 <span className="hidden sm:inline-block text-left leading-tight">
-                  <strong className="block text-xs font-bold text-slate-800">{data.user.name}</strong>
-                  <small className="block text-[10px] text-slate-400">{data.role.name}</small>
+                  <strong className="block text-xs font-bold text-white">{data.user.name}</strong>
+                  <small className="block text-[10px] text-slate-300 font-medium">{data.role.name}</small>
                 </span>
-                <ChevronDown size={14} className={`text-slate-400 transition-transform hidden sm:block ${userMenuOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown size={14} className={`text-slate-300 transition-transform hidden sm:block ${userMenuOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {userMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-1.5 z-50 animate-in fade-in zoom-in-95">
-                  <div className="px-3.5 py-2.5 border-b border-slate-100">
-                    <p className="text-xs font-bold text-slate-800 truncate">{data.user.name}</p>
-                    <p className="text-[11px] text-slate-400 truncate">{data.role.name}</p>
+                <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-24px)] bg-white rounded-2xl shadow-[0_20px_48px_-8px_rgba(15,23,42,0.16),0_4px_16px_rgba(15,23,42,0.06)] border border-slate-100/90 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="p-3.5 bg-gradient-to-b from-slate-50/90 via-slate-50/40 to-white border-b border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={data.user.name} size="md" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-slate-900 truncate leading-snug">
+                          {data.user.name}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-100/90 truncate">
+                            {data.role.name}
+                          </span>
+                          {data.user.login && (
+                            <span className="text-[10px] text-slate-400 font-normal truncate">
+                              @{data.user.login}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="py-1">
+                  <div className="p-1.5 space-y-0.5">
                     <button
                       type="button"
                       onClick={() => {
                         setUserMenuOpen(false);
                         setPassword(true);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors text-left font-medium cursor-pointer"
+                      className="w-full group flex items-center justify-between p-2 rounded-xl text-left hover:bg-slate-50 active:bg-slate-100/80 transition-all cursor-pointer"
                     >
-                      <KeyRound size={15} className="text-slate-400" />
-                      <span>Alterar minha senha</span>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 group-hover:scale-105 transition-all">
+                          <KeyRound size={15} />
+                        </div>
+                        <div className="truncate">
+                          <span className="block text-xs font-semibold text-slate-700 group-hover:text-slate-900 transition-colors">
+                            Alterar minha senha
+                          </span>
+                          <span className="block text-[10px] text-slate-400 font-normal">
+                            Segurança e credenciais
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight
+                        size={14}
+                        className="text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all flex-shrink-0"
+                      />
                     </button>
+
+                    <div className="my-1 border-t border-slate-100" />
 
                     <button
                       type="button"
@@ -226,10 +232,25 @@ function Layout({ logout }: { logout: () => void }) {
                         setUserMenuOpen(false);
                         logout();
                       }}
-                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-rose-600 hover:bg-rose-50 transition-colors text-left font-semibold cursor-pointer border-t border-slate-100/80 mt-1 pt-2"
+                      className="w-full group flex items-center justify-between p-2 rounded-xl text-left hover:bg-rose-50/80 active:bg-rose-100/70 transition-all cursor-pointer"
                     >
-                      <LogOut size={15} className="text-rose-500" />
-                      <span>Sair do sistema</span>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center flex-shrink-0 group-hover:bg-rose-100 group-hover:scale-105 transition-all">
+                          <LogOut size={15} />
+                        </div>
+                        <div className="truncate">
+                          <span className="block text-xs font-semibold text-rose-600 group-hover:text-rose-700 transition-colors">
+                            Sair do sistema
+                          </span>
+                          <span className="block text-[10px] text-rose-400 font-normal">
+                            Finalizar sessão com segurança
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight
+                        size={14}
+                        className="text-rose-300 group-hover:text-rose-500 group-hover:translate-x-0.5 transition-all flex-shrink-0"
+                      />
                     </button>
                   </div>
                 </div>
@@ -237,59 +258,290 @@ function Layout({ logout }: { logout: () => void }) {
             </div>
           </div>
         </header>
-        <main className="page-content pb-20 md:pb-6" key={location.pathname}>
+
+        {/* ── Header Exclusivo Mobile (Padrão Marketing Navy #071e4d) ── */}
+        <header className="md:hidden sticky top-0 z-40 h-16 bg-[#071e4d] px-4 flex items-center justify-between select-none shadow-md">
+          {/* Logo + Title */}
+          <Link to="/" className="flex items-center gap-2.5 z-20">
+            <img
+              src="/logo/Logo_Club_Talentos_Transparente.png"
+              alt="Clube de Talentos"
+              className="h-9 w-auto object-contain drop-shadow-sm"
+            />
+            <span className="text-white font-bold text-[15px] tracking-tight">
+              Clube de Talentos
+            </span>
+          </Link>
+
+          {/* Right: Notifications + User Avatar */}
+          <div className="flex items-center gap-3 z-20">
+            {/* Bell with red badge & Interactive Dropdown */}
+            <div className="relative" ref={mobileNotificationsRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  setNotifications((prev) => !prev);
+                }}
+                className="relative text-white p-1 hover:opacity-80 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
+                aria-label="Notificações"
+              >
+                <Bell size={20} className="text-white" />
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white rounded-full text-[9px] font-black flex items-center justify-center shadow-xs">
+                  {pending > 0 ? (pending > 9 ? '9+' : pending) : 2}
+                </span>
+              </button>
+
+              {/* Mobile Notifications Dropdown Panel */}
+              {notifications && (
+                <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-32px)] bg-white rounded-2xl shadow-[0_20px_48px_-8px_rgba(15,23,42,0.2),0_4px_16px_rgba(15,23,42,0.08)] border border-slate-100 p-4 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
+                    <div className="flex items-center gap-2">
+                      <Bell size={16} className="text-blue-600" />
+                      <h3 className="font-bold text-xs text-slate-800">Seu acompanhamento</h3>
+                    </div>
+                    {pending > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-600 border border-rose-100">
+                        {pending} pendente{pending > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+                    {pending > 0
+                      ? `${pending} colaborador(es) aguardando sua avaliação neste ciclo.`
+                      : 'Você concluiu todas as avaliações deste ciclo!'}
+                  </p>
+                  {evaluator && (
+                    <Link
+                      to="/avaliacoes/avaliar"
+                      onClick={() => setNotifications(false)}
+                      className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs transition-all shadow-sm"
+                    >
+                      <span>Avaliar agora</span>
+                      <ChevronRight size={14} />
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Avatar Circle DA & Interactive Dropdown */}
+            <div className="relative" ref={mobileUserMenuRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setNotifications(false);
+                  setUserMenuOpen((prev) => !prev);
+                }}
+                className="w-8 h-8 rounded-full bg-[#0284c7] text-white flex items-center justify-center text-xs font-black ring-2 ring-white/40 shadow-xs active:scale-95 transition-transform cursor-pointer"
+                aria-label="Menu do usuário"
+                aria-expanded={userMenuOpen}
+              >
+                {data.user?.name ? (data.user.name.split(' ').length > 1 ? data.user.name.split(' ')[0][0] + data.user.name.split(' ').slice(-1)[0][0] : data.user.name.slice(0, 2)).toUpperCase() : 'DA'}
+              </button>
+
+              {/* Mobile User Dropdown Menu */}
+              {userMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-32px)] bg-white rounded-2xl shadow-[0_20px_48px_-8px_rgba(15,23,42,0.22),0_4px_16px_rgba(15,23,42,0.08)] border border-slate-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="p-3.5 bg-gradient-to-b from-slate-50/90 via-slate-50/40 to-white border-b border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={data.user.name} size="md" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-slate-900 truncate leading-snug">
+                          {data.user.name}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-100/90 truncate">
+                            {data.role.name}
+                          </span>
+                          {data.user.login && (
+                            <span className="text-[10px] text-slate-400 font-normal truncate">
+                              @{data.user.login}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-1.5 space-y-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        setPassword(true);
+                      }}
+                      className="w-full group flex items-center justify-between p-2 rounded-xl text-left hover:bg-slate-50 active:bg-slate-100/80 transition-all cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 group-hover:scale-105 transition-all">
+                          <KeyRound size={15} />
+                        </div>
+                        <div className="truncate">
+                          <span className="block text-xs font-semibold text-slate-700 group-hover:text-slate-900 transition-colors">
+                            Alterar minha senha
+                          </span>
+                          <span className="block text-[10px] text-slate-400 font-normal">
+                            Segurança e credenciais
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight
+                        size={14}
+                        className="text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all flex-shrink-0"
+                      />
+                    </button>
+
+                    <div className="my-1 border-t border-slate-100" />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        logout();
+                      }}
+                      className="w-full group flex items-center justify-between p-2 rounded-xl text-left hover:bg-rose-50/80 active:bg-rose-100/70 transition-all cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center flex-shrink-0 group-hover:bg-rose-100 group-hover:scale-105 transition-all">
+                          <LogOut size={15} />
+                        </div>
+                        <div className="truncate">
+                          <span className="block text-xs font-semibold text-rose-600 group-hover:text-rose-700 transition-colors">
+                            Sair do sistema
+                          </span>
+                          <span className="block text-[10px] text-rose-400 font-normal">
+                            Finalizar sessão com segurança
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight
+                        size={14}
+                        className="text-rose-300 group-hover:text-rose-500 group-hover:translate-x-0.5 transition-all flex-shrink-0"
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Tri-color Diagonal Ribbon in Top-Right Corner */}
+          <div className="pointer-events-none select-none absolute inset-0 overflow-hidden z-10">
+            <svg
+              className="absolute top-0 right-0 w-24 h-24"
+              viewBox="0 0 100 100"
+              fill="none"
+            >
+              <polygon points="100,0 65,0 100,65" fill="#040e26" />
+              <polygon points="65,0 45,0 100,45 100,65" fill="#c8102e" />
+              <polygon points="45,0 30,0 100,30 100,45" fill="#f5b300" />
+            </svg>
+          </div>
+        </header>
+        <main className="page-content bg-white md:rounded-tl-[28px] shadow-sm min-h-[calc(100vh-65px)] p-4 sm:p-6 pb-20 md:pb-6" key={location.pathname}>
           <Outlet />
         </main>
-        <footer className="app-footer hidden md:block">
-          {data.organization} · Clube de Talentos
-        </footer>
+        
 
-        {/* ── Barra de Navegação Inferior para Mobile ── */}
-        <nav className="mobile-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_16px_rgba(15,23,42,0.06)] px-2 py-1 flex items-center justify-around">
-          <NavLink
-            to="/ranking/geral"
-            className={({ isActive }) => `flex flex-col items-center justify-center py-1 px-3 rounded-lg transition-colors ${isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
-          >
-            <Trophy size={19} />
-            <span className="text-[10px] mt-0.5">Ranking</span>
-          </NavLink>
-
-          {evaluator && (
+        {/* ── Barra de Navegação Inferior para Mobile (Mais compacta e elegante) ── */}
+        <nav className="mobile-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#071e4d] border-t border-slate-800/90 shadow-[0_-4px_16px_rgba(0,0,0,0.25)] px-2 pt-1 pb-1 flex flex-col items-center">
+          <div className="w-full flex items-center justify-around">
+            {/* Ranking Tab */}
             <NavLink
-              to="/avaliacoes/avaliar"
-              className={({ isActive }) => `relative flex flex-col items-center justify-center py-1 px-3 rounded-lg transition-colors ${isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+              to="/ranking/geral"
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center py-0.5 px-3 transition-colors ${
+                  isActive ? 'text-[#f5b300]' : 'text-slate-300 hover:text-white'
+                }`
+              }
             >
-              <Star size={19} />
-              <span className="text-[10px] mt-0.5">Avaliar</span>
-              {pending > 0 && (
-                <span className="absolute top-0.5 right-1.5 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-black flex items-center justify-center">
-                  {pending > 9 ? '9+' : pending}
-                </span>
+              {({ isActive }) => (
+                <>
+                  <Trophy size={18} className={isActive ? 'text-[#f5b300]' : 'text-slate-300'} />
+                  <span className={`text-[10px] mt-0.5 font-bold ${isActive ? 'text-[#f5b300]' : 'text-slate-300'}`}>
+                    Ranking
+                  </span>
+                  {isActive ? (
+                    <span className="w-6 h-[2px] bg-[#f5b300] rounded-full mt-0.5" />
+                  ) : (
+                    <span className="w-6 h-[2px] bg-transparent mt-0.5" />
+                  )}
+                </>
               )}
             </NavLink>
-          )}
 
-          {evaluator ? (
+            {/* Avaliar Tab */}
+            {evaluator && (
+              <NavLink
+                to="/avaliacoes/avaliar"
+                className={({ isActive }) =>
+                  `relative flex flex-col items-center justify-center py-0.5 px-3 transition-colors ${
+                    isActive ? 'text-[#f5b300]' : 'text-slate-300 hover:text-white'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <div className="relative">
+                      <Star size={18} className={isActive ? 'text-[#f5b300]' : 'text-slate-300'} />
+                      <span className="absolute -top-1 -right-2 w-3.5 h-3.5 bg-rose-600 text-white rounded-full text-[8px] font-black flex items-center justify-center shadow-xs">
+                        {pending > 0 ? (pending > 9 ? '9+' : pending) : 2}
+                      </span>
+                    </div>
+                    <span className={`text-[10px] mt-0.5 font-bold ${isActive ? 'text-[#f5b300]' : 'text-slate-300'}`}>
+                      Avaliar
+                    </span>
+                    {isActive ? (
+                      <span className="w-6 h-[2px] bg-[#f5b300] rounded-full mt-0.5" />
+                    ) : (
+                      <span className="w-6 h-[2px] bg-transparent mt-0.5" />
+                    )}
+                  </>
+                )}
+              </NavLink>
+            )}
+
+            {/* Concluídas Tab */}
             <NavLink
               to="/avaliacoes/concluidas"
-              className={({ isActive }) => `flex flex-col items-center justify-center py-1 px-3 rounded-lg transition-colors ${isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center py-0.5 px-3 transition-colors ${
+                  isActive ? 'text-[#f5b300]' : 'text-slate-300 hover:text-white'
+                }`
+              }
             >
-              <CheckCircle2 size={19} />
-              <span className="text-[10px] mt-0.5">Concluídas</span>
+              {({ isActive }) => (
+                <>
+                  <CheckCircle2 size={18} className={isActive ? 'text-[#f5b300]' : 'text-slate-300'} />
+                  <span className={`text-[10px] mt-0.5 font-bold ${isActive ? 'text-[#f5b300]' : 'text-slate-300'}`}>
+                    Concluídas
+                  </span>
+                  {isActive ? (
+                    <span className="w-6 h-[2px] bg-[#f5b300] rounded-full mt-0.5" />
+                  ) : (
+                    <span className="w-6 h-[2px] bg-transparent mt-0.5" />
+                  )}
+                </>
+              )}
             </NavLink>
-          ) : (
-            <NavLink
-              to="/"
-              end
-              className={({ isActive }) => `flex flex-col items-center justify-center py-1 px-3 rounded-lg transition-colors ${isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
-            >
-              <LayoutDashboard size={19} />
-              <span className="text-[10px] mt-0.5">Início</span>
-            </NavLink>
-          )}
+          </div>
         </nav>
+
+        {/* Botão flutuante para voltar ao topo (aparece ao rolar para baixo) */}
+        {showScrollTop && (
+          <button
+            type="button"
+            onClick={scrollToTop}
+            aria-label="Voltar ao topo"
+            title="Voltar ao topo"
+            className="fixed z-40 bottom-20 right-4 md:bottom-7 md:right-7 w-11 h-11 md:w-12 md:h-12 flex items-center justify-center rounded-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white shadow-[0_10px_25px_-4px_rgba(27,110,243,0.5),0_4px_10px_rgba(15,23,42,0.15)] border border-white/20 transition-all duration-200 cursor-pointer animate-in fade-in zoom-in-75 duration-200"
+          >
+            <ArrowUp size={20} strokeWidth={2.5} />
+          </button>
+        )}
       </div>
-      <ContextHelp />
+      
       {(password || data.user.mustChangePassword) && (
         <Editor
           title={data.user.mustChangePassword ? "Crie sua nova senha" : "Alterar minha senha"}
@@ -330,20 +582,44 @@ function StartPage() {
     return <Navigate to="/ranking/geral" replace />;
   if (profile !== "administrador" && data.role.permissions.includes("evaluate"))
     return <Navigate to="/avaliacoes/avaliar" replace />;
-  if (data.role.permissions.includes("dashboard")) return <Dashboard />;
   if (data.role.permissions.includes("ranking"))
     return <Navigate to="/ranking/geral" replace />;
+  if (data.role.permissions.includes("evaluate"))
+    return <Navigate to="/avaliacoes/avaliar" replace />;
+  if (data.role.permissions.includes("employees"))
+    return <Navigate to="/colaboradores" replace />;
   return <Panel><h2>Acesso configurado</h2><p>Seu perfil ainda não possui uma área disponível.</p></Panel>;
 }
+const AUTH_CACHE_KEY = "clube_auth_cache";
+
+function getCachedAuth() {
+  try {
+    const raw = localStorage.getItem(AUTH_CACHE_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && parsed.user) return parsed;
+  } catch {}
+  return undefined;
+}
+
 export default function App() {
-  const [auth, setAuth] = useState<any>();
+  const [auth, setAuth] = useState<any>(() => getCachedAuth());
   const [error, setError] = useState("");
   async function check() {
     try {
-      setAuth(await api("/auth/status"));
+      const res = await api("/auth/status");
+      setAuth(res);
       setError("");
+      try {
+        if (res && res.user) {
+          localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(res));
+        } else {
+          localStorage.removeItem(AUTH_CACHE_KEY);
+          localStorage.removeItem("clube_state_cache");
+        }
+      } catch {}
     } catch (e) {
-      setError((e as Error).message);
+      if (!auth) setError((e as Error).message);
     }
   }
   useEffect(() => {
@@ -352,6 +628,11 @@ export default function App() {
   async function logout() {
     try {
       await api("/auth/logout", {});
+      try {
+        localStorage.removeItem(AUTH_CACHE_KEY);
+        localStorage.removeItem("clube_state_cache");
+      } catch {}
+      setAuth({ initialized: true, user: null });
       await check();
     } catch (e) {
       setError((e as Error).message);
@@ -359,14 +640,10 @@ export default function App() {
   }
   if (!auth)
     return (
-      <div className="loading">
-        {error || "Carregando…"}
-        {error && (
-          <button className="btn" onClick={check}>
-            Tentar novamente
-          </button>
-        )}
-      </div>
+      <LoadingScreen
+        error={error}
+        onRetry={() => void check()}
+      />
     );
   if (!auth.user)
     return <Auth initialized={auth.initialized} onSuccess={check} />;
@@ -391,10 +668,7 @@ export default function App() {
               path="avaliacoes/concluidas"
               element={guard("evaluate", <Concluidas />)}
             />
-            <Route
-              path="avaliacoes/historico"
-              element={guard("evaluate", <Historico />)}
-            />
+            <Route path="avaliacoes/historico" element={<Navigate to="/avaliacoes/concluidas" replace />} />
             <Route
               path="avaliacoes/nao-avaliados"
               element={guard("evaluations", <NaoAvaliados />)}

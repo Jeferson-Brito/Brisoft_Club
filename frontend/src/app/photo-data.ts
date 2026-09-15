@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { dateLabel, useData, type Row } from "./state";
 
 const LOADED_AT = Date.now();
@@ -11,6 +12,8 @@ const currentAllocation = (employeeId: string, allocations: Row[]) =>
 export function usePhotoData() {
   const context = useData();
   const { data } = context;
+
+  return useMemo(() => {
     const season =
       data.seasons.find((item) => item.status === "ativa") ||
       [...data.seasons].sort((a, b) =>
@@ -124,6 +127,14 @@ export function usePhotoData() {
       };
     });
 
+    const roleProfile = String(data.role?.name || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+    const isClient = roleProfile === "cliente";
+    const isSupervisor = ["supervisor", "fiscal"].includes(roleProfile);
+    const todayStr = new Date().toISOString().slice(0, 10);
+
     const pending: any[] = data.participants
       .filter((participant) => {
         const participantCycle = data.cycles.find(
@@ -137,7 +148,8 @@ export function usePhotoData() {
               item.participantId === participant.id &&
               item.evaluatorId === data.user.id &&
               !item.replicated &&
-              item.status !== "rascunho",
+              item.status !== "rascunho" &&
+              item.status !== "pulado",
           )
         );
       })
@@ -151,13 +163,38 @@ export function usePhotoData() {
             item.evaluatorId === data.user.id &&
             item.status === "rascunho",
         );
-        const deadline = participantCycle?.deadline || "";
+        const skippedEval = data.evaluations.find(
+          (item) =>
+            item.participantId === participant.id &&
+            item.evaluatorId === data.user.id &&
+            item.status === "pulado",
+        );
+
+        const windowStart = isClient && participantCycle?.clientStart
+          ? participantCycle.clientStart
+          : isSupervisor && participantCycle?.supervisorStart
+            ? participantCycle.supervisorStart
+            : participantCycle?.start || "";
+
+        const windowEnd = isClient && participantCycle?.clientDeadline
+          ? participantCycle.clientDeadline
+          : isSupervisor && participantCycle?.supervisorDeadline
+            ? participantCycle.supervisorDeadline
+            : participantCycle?.deadline || "";
+
+        const notStartedYet = Boolean(windowStart && todayStr < windowStart);
+        const isExpired = Boolean(windowEnd && todayStr > windowEnd);
+        const windowOpen = !notStartedYet && !isExpired;
+        const windowStatus = notStartedYet ? "upcoming" : isExpired ? "expired" : "available";
+
+        const deadline = windowEnd || participantCycle?.deadline || "";
         const days = deadline
           ? Math.ceil(
               (new Date(`${deadline}T12:00:00`).getTime() - LOADED_AT) /
                 86400000,
             )
           : 0;
+
         return {
           ...participant,
           employee: participant.snapshot?.name || "—",
@@ -168,39 +205,71 @@ export function usePhotoData() {
           post: participant.snapshot?.post || "—",
           evaluator: data.user.name,
           evaluatorRole: data.role.name,
-          status: days < 0 ? "atrasado" : draft ? "iniciada" : "pendente",
+          status: skippedEval
+            ? "pulado"
+            : notStartedYet
+            ? "aguardando_periodo"
+            : days < 0
+            ? "atrasado"
+            : draft
+            ? "iniciada"
+            : "pendente",
           deadline: dateLabel(deadline),
           deadlineRaw: deadline,
           daysLeft: days < 0 ? `${Math.abs(days)} dias de atraso` : `${days} dias`,
+          windowOpen,
+          windowStatus,
+          windowStart,
+          windowEnd,
+          windowStartLabel: windowStart ? dateLabel(windowStart) : "",
+          windowEndLabel: windowEnd ? dateLabel(windowEnd) : "",
+          isSkipped: Boolean(skippedEval),
+          skipReason: skippedEval?.reason || "",
         };
       });
 
-    const toEvaluate: any[] = pending.map((item) => {
-      const emp = data.employees.find((e) => e.id === item.employeeId);
-      return {
-        id: item.id,
-        participantId: item.id,
-        cycleId: item.cycleId,
-        name: item.employee,
-        photo: item.photo,
-        role: item.role,
-        client: item.client,
-        post: item.post,
-        registration: item.registration,
-        supervisor:
-          usersById.get(item.snapshot?.supervisorId)?.name || "—",
-        score: 0,
-        badge: null,
-        status: "ativo",
-        evaluations: 0,
-        avgScore: 0,
-        presence: 0,
-        admissionDate: emp?.admissionDate || "",
-        allocationStart: item.snapshot?.allocationStart || "",
-        gender: emp?.gender || "",
-        cpf: emp?.cpf || "",
-      };
-    });
+    const toEvaluate: any[] = [...pending]
+      .sort((a, b) => {
+        // Colaboradores prontos para avaliar (dentro da janela e não pulados) primeiro
+        const scoreA = a.windowOpen ? (a.isSkipped ? 1 : 0) : 2;
+        const scoreB = b.windowOpen ? (b.isSkipped ? 1 : 0) : 2;
+        if (scoreA !== scoreB) return scoreA - scoreB;
+        return String(a.employee).localeCompare(String(b.employee));
+      })
+      .map((item) => {
+        const emp = data.employees.find((e) => e.id === item.employeeId);
+        return {
+          id: item.id,
+          participantId: item.id,
+          cycleId: item.cycleId,
+          name: item.employee,
+          photo: item.photo,
+          role: item.role,
+          client: item.client,
+          post: item.post,
+          registration: item.registration,
+          supervisor:
+            usersById.get(item.snapshot?.supervisorId)?.name || "—",
+          score: 0,
+          badge: null,
+          status: "ativo",
+          evaluations: 0,
+          avgScore: 0,
+          presence: 0,
+          admissionDate: emp?.admissionDate || "",
+          allocationStart: item.snapshot?.allocationStart || "",
+          gender: emp?.gender || "",
+          cpf: emp?.cpf || "",
+          windowOpen: item.windowOpen,
+          windowStatus: item.windowStatus,
+          windowStart: item.windowStart,
+          windowEnd: item.windowEnd,
+          windowStartLabel: item.windowStartLabel,
+          windowEndLabel: item.windowEndLabel,
+          isSkipped: item.isSkipped,
+          skipReason: item.skipReason,
+        };
+      });
 
     return {
       ...context,
@@ -214,4 +283,5 @@ export function usePhotoData() {
       pending,
       toEvaluate,
     };
+  }, [data, context]);
 }

@@ -61,14 +61,19 @@ export function Seasons() {
         .filter((s) => ["ativa", "planejada"].includes(s.status))
         .map((s) => ({ value: s.id, label: s.name })),
     },
-    { key: "start", label: "Início", type: "date" },
-    { key: "end", label: "Fim", type: "date" },
-    { key: "deadline", label: "Prazo para avaliar", type: "date" },
+    { key: "start", label: "Início do ciclo", type: "date" },
+    { key: "end", label: "Fim do ciclo", type: "date" },
+    { key: "deadline", label: "Prazo geral para avaliar", type: "date" },
+    { key: "clientStart", label: "Início avaliação do cliente (opcional)", type: "date" },
+    { key: "clientDeadline", label: "Prazo final do cliente (opcional)", type: "date" },
+    { key: "supervisorStart", label: "Início avaliação do supervisor/fiscal (opcional)", type: "date" },
+    { key: "supervisorDeadline", label: "Prazo final do supervisor/fiscal (opcional)", type: "date" },
   ];
   return (
     <>
       <Heading
         title="Temporadas"
+        icon={<CalendarDays size={20} className="text-[#f5b300]" />}
         description="Organize os ciclos, congele as regras e publique os resultados."
       >
         <NewButton
@@ -79,11 +84,43 @@ export function Seasons() {
           }}
         />
       </Heading>
-      <div className="photo-summary">
-        <div className="photo-stat"><CalendarDays /><span><strong>{data.seasons.length}</strong><small>Temporadas cadastradas</small></span></div>
-        <div className="photo-stat green"><CirclePlay /><span><strong>{data.seasons.filter(s => s.status === 'ativa').length}</strong><small>Temporada ativa</small></span></div>
-        <div className="photo-stat"><BarChart3 /><span><strong>{data.seasons.filter(s => ['encerrada', 'publicada'].includes(s.status)).length}</strong><small>Resultados consolidados</small></span></div>
-        <div className="photo-stat"><Users /><span><strong>{data.participants.length}</strong><small>Participações registradas</small></span></div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-500">Temporadas cadastradas</p>
+            <h3 className="text-2xl font-black text-slate-900 mt-1">{data.seasons.length}</h3>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#071e4d] flex items-center justify-center font-bold">
+            <CalendarDays size={18} />
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-500">Temporada ativa</p>
+            <h3 className="text-2xl font-black text-slate-900 mt-1">{data.seasons.filter(s => s.status === 'ativa').length}</h3>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+            <CirclePlay size={18} />
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-500">Resultados consolidados</p>
+            <h3 className="text-2xl font-black text-slate-900 mt-1">{data.seasons.filter(s => ['encerrada', 'publicada'].includes(s.status)).length}</h3>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-amber-50 text-[#f5b300] flex items-center justify-center font-bold">
+            <BarChart3 size={18} />
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-500">Participações registradas</p>
+            <h3 className="text-2xl font-black text-slate-900 mt-1">{data.participants.length}</h3>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+            <Users size={18} />
+          </div>
+        </div>
       </div>
       {!data.seasons.length && (
         <Panel>
@@ -193,7 +230,17 @@ export function Seasons() {
                       <p>
                         {dateLabel(c.start)} – {dateLabel(c.end)}
                       </p>
-                      <small>Prazo: {dateLabel(c.deadline)}</small>
+                      <small>Prazo geral: {dateLabel(c.deadline)}</small>
+                      {(c.clientStart || c.clientDeadline) && (
+                        <small style={{ display: 'block', color: '#475569', fontSize: '11px' }}>
+                          Cliente: {c.clientStart ? dateLabel(c.clientStart) : dateLabel(c.start)} até {dateLabel(c.clientDeadline || c.deadline)}
+                        </small>
+                      )}
+                      {(c.supervisorStart || c.supervisorDeadline) && (
+                        <small style={{ display: 'block', color: '#475569', fontSize: '11px' }}>
+                          Supervisor/Fiscal: {c.supervisorStart ? dateLabel(c.supervisorStart) : dateLabel(c.start)} até {dateLabel(c.supervisorDeadline || c.deadline)}
+                        </small>
+                      )}
                     </div>
                     <Status value={c.status} />
                     <div className="actions">

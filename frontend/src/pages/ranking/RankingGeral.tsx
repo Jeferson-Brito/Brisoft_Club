@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Download, Filter, Search, Trophy, X, Crown } from 'lucide-react';
+import { Download, Filter, Search, Trophy, X, Crown, Calendar, ChevronRight } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { usePhotoData } from '../../app/photo-data';
 
@@ -92,6 +92,10 @@ function ConfettiEffect() {
 
 export default function RankingGeral() {
   const { data, season } = usePhotoData();
+
+  // Permissão de exportação: apenas Administrador ou Analista (ou permissão de reports)
+  const profileName = String(data.role?.name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const canExport = profileName.includes("admin") || profileName.includes("analista") || Boolean(data.role?.permissions?.includes("reports"));
   const [seasonId, setSeasonId] = useState(season?.id || '');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -106,7 +110,7 @@ export default function RankingGeral() {
   const currentEmployee = ranking.find(item => (item.employeeId || item.id) === currentEmployeeId);
 
   const rows = ranking
-    .filter(item => !search || `${item.name} ${item.registration}`.toLowerCase().includes(search.toLowerCase()))
+    .filter(item => !search || `${item.name} ${item.registration} ${item.client} ${item.post} ${item.role}`.toLowerCase().includes(search.toLowerCase()))
     .filter(item => !clientId || item.clientId === clientId)
     .filter(item => !postId || item.postId === postId)
     .filter(item => !role || item.role === role)
@@ -116,31 +120,45 @@ export default function RankingGeral() {
   const roles = [...new Set(ranking.map(item => item.role).filter(Boolean))];
   const evaluated = ranking.filter(item => Number(item.evaluations || 0) > 0);
 
-  // ── Pódio por Classificação: O melhor pontuador de cada categoria (Ouro, Prata e Bronze) ──
-  const isGold = (item: any) => ['ouro', 'diamante'].includes(String(item.badge || '').toLowerCase());
-  const isSilver = (item: any) => String(item.badge || '').toLowerCase() === 'prata';
-  const isBronze = (item: any) => String(item.badge || '').toLowerCase() === 'bronze';
+  // ── Pódio da Temporada: Top 3 Colaboradores Avaliados ──
+  const candidatePool = (search || clientId || postId || role || badge) ? rows : ranking;
+  const evaluatedCandidates = candidatePool.filter(
+    item => Number(item.evaluations || 0) > 0 || Number(item.score || 0) > 0
+  );
 
-  const goldCandidates = evaluated.filter(isGold);
-  const silverCandidates = evaluated.filter(isSilver);
-  const bronzeCandidates = evaluated.filter(isBronze);
+  const podiumCandidates = [...(evaluatedCandidates.length > 0 ? evaluatedCandidates : evaluated)].sort((a, b) => {
+    if (Number(b.score || 0) !== Number(a.score || 0)) {
+      return Number(b.score || 0) - Number(a.score || 0);
+    }
+    return Number(b.evaluations || 0) - Number(a.evaluations || 0);
+  });
 
-  const topGold = goldCandidates.length > 0
-    ? [...goldCandidates].sort((a, b) => Number(b.score || 0) - Number(a.score || 0))[0]
-    : null;
-  const topSilver = silverCandidates.length > 0
-    ? [...silverCandidates].sort((a, b) => Number(b.score || 0) - Number(a.score || 0))[0]
-    : null;
-  const topBronze = bronzeCandidates.length > 0
-    ? [...bronzeCandidates].sort((a, b) => Number(b.score || 0) - Number(a.score || 0))[0]
-    : null;
+  const topGold = podiumCandidates[0] || null;   // 1º Lugar (Líder / Ouro - Centro)
+  const topSilver = podiumCandidates[1] || null; // 2º Lugar (Prata - Esquerda)
+  const topBronze = podiumCandidates[2] || null; // 3º Lugar (Bronze - Direita)
 
   const podiumCount = [topGold, topSilver, topBronze].filter(Boolean).length;
   const clearFilters = () => { setSearch(''); setClientId(''); setPostId(''); setRole(''); setBadge(''); setSeasonId(season?.id || ''); };
   const activeFilterCount = [search, clientId, postId, role, badge, (seasonId && seasonId !== season?.id) ? seasonId : ''].filter(Boolean).length;
 
   return (
-    <div className="ranking-page page-enter">
+    <div className="ranking-page page-enter space-y-4">
+      {/* ── Cabeçalho Padrão Corporativo Grupo Combate ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 mb-2 border-b border-slate-200">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-[#071e4d] text-[#f5b300] flex items-center justify-center shadow-md shadow-[#071e4d]/20 flex-shrink-0">
+            <Trophy size={22} className="text-[#f5b300]" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">
+              Ranking Geral
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+              Classificação geral dos colaboradores por pontuação e desempenho na temporada {season?.name ? `(${season.name})` : ''}
+            </p>
+          </div>
+        </div>
+      </div>
       {currentEmployee && <section className="my-ranking mb-3" aria-label="Minha posição no ranking">
         <Avatar name={currentEmployee.name} src={currentEmployee.photo} size="md" />
         <div className="my-ranking-copy"><span>Sua posição nesta temporada</span><strong>{currentEmployee.position ? `${currentEmployee.position}º lugar` : 'Aguardando classificação'}</strong><small>{currentEmployee.name} · {currentEmployee.client}</small></div>
@@ -148,85 +166,77 @@ export default function RankingGeral() {
       </section>}
 
       {/* ── Pódio Flutuante da Temporada (Fundo Transparente com Confetes) ── */}
-      <section className="bg-transparent my-3 sm:my-5 relative overflow-hidden" aria-label="Pódio da temporada">
+      <section className="bg-transparent my-2 sm:my-4 relative overflow-hidden select-none" aria-label="Pódio da temporada">
         {podiumCount > 0 && <ConfettiEffect />}
-        <div className="pt-2 pb-2 px-1 sm:px-4 bg-transparent relative z-10">
-          {/* ── Visual Pedestal Podium Grid (Sempre 3 colunas, inclusive no mobile) ── */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 items-end max-w-xl mx-auto">
+        <div className="pt-1 pb-1 px-1 sm:px-4 bg-transparent relative z-10 max-w-sm sm:max-w-xl mx-auto">
+          {/* ── Visual Pedestal Podium Grid ── */}
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-4 items-end w-full">
             
             {/* ── 2º LUGAR (ESQUERDA - PRATA) ── */}
             <div className="flex flex-col items-center min-w-0">
               {topSilver ? (
-                <div className="flex flex-col items-center w-full mb-2">
-                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs mb-1.5">
+                <div className="flex flex-col items-center w-full mb-1.5">
+                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] sm:text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs mb-1">
                     🥈 2º
                   </span>
                   <div className="relative mb-1">
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full ring-3 ring-slate-300 ring-offset-2 overflow-hidden shadow-sm flex items-center justify-center bg-white">
-                      <Avatar name={topSilver.name} src={topSilver.photo} size="md" />
+                    <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-full ring-2 ring-slate-300 ring-offset-1 overflow-hidden shadow-xs flex items-center justify-center bg-white">
+                      <Avatar name={topSilver.name} src={topSilver.photo} size="sm" />
                     </div>
                   </div>
                   <div className="w-full text-center px-0.5">
-                    <div className="font-bold text-[11px] sm:text-sm text-slate-800 truncate" title={topSilver.name}>{topSilver.name}</div>
+                    <div className="font-bold text-[10px] sm:text-sm text-slate-800 truncate" title={topSilver.name}>{topSilver.name}</div>
                     <div className="text-[9px] sm:text-xs text-slate-400 truncate" title={`${topSilver.client} · ${topSilver.post}`}>{topSilver.client}</div>
                   </div>
                   <div className="mt-0.5 font-black text-xs sm:text-sm text-slate-700">
-                    {topSilver.score} <span className="text-[9px] font-semibold text-slate-400">pts</span>
+                    {topSilver.score} <span className="text-[8px] font-semibold text-slate-400">pts</span>
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center w-full mb-2 opacity-50">
-                  <span className="text-[10px] font-bold text-slate-400 mb-1">🥈 2º</span>
-                  <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 text-xs mb-1">?</div>
+                <div className="flex flex-col items-center w-full mb-1.5 opacity-60">
+                  <span className="text-[9px] font-bold text-slate-500 mb-0.5">🥈 2º</span>
+                  <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 text-xs mb-0.5 bg-slate-50">?</div>
                   <span className="text-[9px] text-slate-400">Aguardando</span>
                 </div>
               )}
-              {/* Degrau 2 (Flutuante) */}
-              <div className="w-full h-20 sm:h-28 rounded-2xl bg-gradient-to-t from-slate-300 via-slate-200 to-slate-100 border border-slate-300/80 shadow-[0_8px_20px_rgba(100,116,139,0.22)] flex flex-col items-center justify-center relative overflow-hidden transition-transform hover:-translate-y-1">
-                <div className="absolute inset-x-0 top-0 h-1 bg-white/70" />
-                <span className="text-3xl sm:text-4xl font-black text-slate-500/40 select-none">2</span>
-                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-600/80">Prata</span>
+              {/* Degrau 2 (Prata) */}
+              <div className="w-full h-18 sm:h-26 rounded-t-xl bg-gradient-to-t from-slate-300 via-slate-200 to-slate-100 border-t border-slate-300 shadow-sm flex flex-col items-center justify-center relative overflow-hidden">
+                <span className="text-2xl sm:text-3xl font-black text-slate-500/30 select-none">2</span>
+                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-700">PRATA</span>
               </div>
             </div>
 
             {/* ── 1º LUGAR (CENTRO - OURO / MAIS ALTO) ── */}
             <div className="flex flex-col items-center min-w-0 z-10">
               {topGold ? (
-                <div className="flex flex-col items-center w-full mb-2">
-                  <Crown size={22} className="text-amber-500 fill-amber-400 drop-shadow-sm mb-0.5" />
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-xs mb-1.5">
-                    🥇 1º
-                  </span>
+                <div className="flex flex-col items-center w-full mb-1.5">
+                  <Crown size={24} className="text-amber-500 fill-amber-400 drop-shadow-md mb-1 animate-crown-float" />
                   <div className="relative mb-1">
-                    <div className="w-15 h-15 sm:w-20 sm:h-20 rounded-full ring-4 ring-amber-400 ring-offset-2 overflow-hidden shadow-md flex items-center justify-center bg-white">
-                      <Avatar name={topGold.name} src={topGold.photo} size="lg" />
+                    <div className="w-13 h-13 sm:w-18 sm:h-18 rounded-full ring-3 ring-amber-400 ring-offset-1 overflow-hidden shadow-md flex items-center justify-center bg-white">
+                      <Avatar name={topGold.name} src={topGold.photo} size="md" />
                     </div>
-                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider shadow-xs whitespace-nowrap">
-                      LÍDER
-                    </span>
                   </div>
                   <div className="w-full text-center px-0.5">
                     <div className="font-extrabold text-xs sm:text-base text-slate-900 truncate" title={topGold.name}>{topGold.name}</div>
-                    <div className="text-[9px] sm:text-xs text-amber-700/80 font-semibold truncate" title={`${topGold.client} · ${topGold.post}`}>{topGold.client}</div>
+                    <div className="text-[9px] sm:text-xs text-amber-700/90 font-semibold truncate" title={`${topGold.client} · ${topGold.post}`}>{topGold.client}</div>
                   </div>
-                  <div className="mt-0.5 font-black text-sm sm:text-base text-amber-600">
-                    {topGold.score} <span className="text-[10px] font-bold text-amber-500">pts</span>
+                  <div className="mt-0.5 font-black text-xs sm:text-base text-amber-600">
+                    {topGold.score} <span className="text-[9px] font-bold text-amber-500">pts</span>
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center w-full mb-2 opacity-50">
-                  <Crown size={20} className="text-amber-500/60 mb-0.5" />
-                  <span className="text-[10px] font-bold text-amber-700/70 mb-1">🥇 1º</span>
-                  <div className="w-13 h-13 sm:w-16 sm:h-16 rounded-full border-2 border-dashed border-amber-400/70 flex items-center justify-center text-amber-600 text-xs mb-1 bg-amber-50/30">?</div>
+                <div className="flex flex-col items-center w-full mb-1.5 opacity-60">
+                  <Crown size={18} className="text-amber-500/60 mb-0.5" />
+                  <span className="text-[9px] font-bold text-amber-700 mb-0.5">🥇 1º</span>
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-dashed border-amber-400 flex items-center justify-center text-amber-600 text-xs mb-0.5 bg-amber-50/50">?</div>
                   <span className="text-[9px] text-slate-400">Aguardando</span>
                 </div>
               )}
-              {/* Degrau 1 (Mais Alto / Flutuante) */}
-              <div className="w-full h-30 sm:h-40 rounded-2xl bg-gradient-to-t from-amber-400 via-amber-300 to-amber-200 border-2 border-amber-300 shadow-[0_12px_28px_rgba(245,158,11,0.32)] flex flex-col items-center justify-center relative overflow-hidden transition-transform hover:-translate-y-1">
-                <div className="absolute inset-x-0 top-0 h-1.5 bg-white/80" />
-                <span className="text-4xl sm:text-6xl font-black text-amber-800/40 select-none">1</span>
-                <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider text-amber-950 flex items-center gap-1">
-                  <Trophy size={11} className="text-amber-800" /> Ouro
+              {/* Degrau 1 (Ouro) */}
+              <div className="w-full h-26 sm:h-36 rounded-t-xl bg-gradient-to-t from-amber-400 via-amber-300 to-amber-200 border-t-2 border-amber-300 shadow-md flex flex-col items-center justify-center relative overflow-hidden">
+                <span className="text-3xl sm:text-5xl font-black text-amber-900/30 select-none">1</span>
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-amber-950 flex items-center gap-0.5">
+                  🏆 OURO
                 </span>
               </div>
             </div>
@@ -234,35 +244,34 @@ export default function RankingGeral() {
             {/* ── 3º LUGAR (DIREITA - BRONZE) ── */}
             <div className="flex flex-col items-center min-w-0">
               {topBronze ? (
-                <div className="flex flex-col items-center w-full mb-2">
-                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 shadow-2xs mb-1.5">
+                <div className="flex flex-col items-center w-full mb-1.5">
+                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] sm:text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 shadow-2xs mb-1">
                     🥉 3º
                   </span>
                   <div className="relative mb-1">
-                    <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-full ring-3 ring-amber-700/40 ring-offset-2 overflow-hidden shadow-sm flex items-center justify-center bg-white">
-                      <Avatar name={topBronze.name} src={topBronze.photo} size="md" />
+                    <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-full ring-2 ring-amber-700/40 ring-offset-1 overflow-hidden shadow-xs flex items-center justify-center bg-white">
+                      <Avatar name={topBronze.name} src={topBronze.photo} size="sm" />
                     </div>
                   </div>
                   <div className="w-full text-center px-0.5">
-                    <div className="font-bold text-[11px] sm:text-sm text-slate-800 truncate" title={topBronze.name}>{topBronze.name}</div>
+                    <div className="font-bold text-[10px] sm:text-sm text-slate-800 truncate" title={topBronze.name}>{topBronze.name}</div>
                     <div className="text-[9px] sm:text-xs text-slate-400 truncate" title={`${topBronze.client} · ${topBronze.post}`}>{topBronze.client}</div>
                   </div>
                   <div className="mt-0.5 font-black text-xs sm:text-sm text-amber-900">
-                    {topBronze.score} <span className="text-[9px] font-semibold text-slate-400">pts</span>
+                    {topBronze.score} <span className="text-[8px] font-semibold text-slate-400">pts</span>
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center w-full mb-2 opacity-50">
-                  <span className="text-[10px] font-bold text-amber-800 mb-1">🥉 3º</span>
-                  <div className="w-11 h-11 sm:w-13 sm:h-13 rounded-full border-2 border-dashed border-amber-300 flex items-center justify-center text-amber-700 text-xs mb-1">?</div>
+                <div className="flex flex-col items-center w-full mb-1.5 opacity-60">
+                  <span className="text-[9px] font-bold text-amber-800 mb-0.5">🥉 3º</span>
+                  <div className="w-10 h-10 sm:w-13 sm:h-13 rounded-full border-2 border-dashed border-amber-300 flex items-center justify-center text-amber-700 text-xs mb-0.5">?</div>
                   <span className="text-[9px] text-slate-400">Aguardando</span>
                 </div>
               )}
-              {/* Degrau 3 (Flutuante) */}
-              <div className="w-full h-15 sm:h-22 rounded-2xl bg-gradient-to-t from-amber-700/30 via-amber-600/20 to-amber-100 border border-amber-600/30 shadow-[0_8px_20px_rgba(180,83,9,0.18)] flex flex-col items-center justify-center relative overflow-hidden transition-transform hover:-translate-y-1">
-                <div className="absolute inset-x-0 top-0 h-1 bg-white/60" />
+              {/* Degrau 3 (Bronze) */}
+              <div className="w-full h-15 sm:h-20 rounded-t-xl bg-gradient-to-t from-amber-600/30 via-amber-500/20 to-amber-100 border-t border-amber-400/40 shadow-xs flex flex-col items-center justify-center relative overflow-hidden">
                 <span className="text-2xl sm:text-3xl font-black text-amber-900/30 select-none">3</span>
-                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-900/70">Bronze</span>
+                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-950">BRONZE</span>
               </div>
             </div>
 
@@ -270,36 +279,223 @@ export default function RankingGeral() {
         </div>
       </section>
 
-      <div className="ranking-actions">
-        <button className={`filter-button ${filtersOpen ? 'active' : ''}`} onClick={() => setFiltersOpen(value => !value)} aria-expanded={filtersOpen}><Filter size={16} /> Filtros{activeFilterCount > 0 && <span>{activeFilterCount}</span>}</button>
-        <a href={`/api/export/ranking?season=${encodeURIComponent(currentSeasonId)}`} className="ranking-export"><Download size={15} /> Exportar</a>
+      {/* ── Toolbar: Busca Rápida + Filtros + Exportar (se admin/analista) ── */}
+      <div className="bg-white rounded-2xl p-2.5 sm:p-3.5 border border-slate-100 shadow-xs mb-3 space-y-2">
+        <div className="flex items-center gap-2">
+          {/* Campo de Busca Rápida */}
+          <div className="relative flex-1 group">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+            />
+            <input
+              type="text"
+              placeholder="Buscar por colaborador, matrícula, empresa..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ paddingLeft: '38px', paddingRight: '30px' }}
+              className="w-full h-10 text-xs bg-slate-50 border border-slate-200/90 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all font-medium"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full cursor-pointer"
+                title="Limpar busca"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          {/* Botão de Filtros (Quadrado com ícone azul) */}
+          <button
+            type="button"
+            onClick={() => setFiltersOpen(prev => !prev)}
+            className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer flex-shrink-0 ${
+              filtersOpen || activeFilterCount > 0
+                ? 'bg-blue-50 border-blue-300 text-blue-600'
+                : 'bg-white border-slate-200/90 text-[#2563eb] hover:bg-slate-50'
+            }`}
+            title="Filtrar ranking"
+          >
+            <Filter size={16} />
+          </button>
+
+          {/* Exportação (apenas desktop) */}
+          {canExport && (
+            <a
+              href={`/api/export/ranking?season=${encodeURIComponent(currentSeasonId)}`}
+              className="hidden sm:inline-flex items-center justify-center gap-1.5 h-10 px-3.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl transition-all shadow-2xs cursor-pointer flex-shrink-0"
+              title="Exportar ranking para planilha Excel"
+            >
+              <Download size={14} className="text-slate-500" />
+              <span>Exportar</span>
+            </a>
+          )}
+        </div>
+
+        {/* Indicador de Filtros Ativos */}
+        {(activeFilterCount > 0 || search) && (
+          <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500 border-t border-slate-100 px-1">
+            <span>
+              <strong className="text-slate-700">{rows.length}</strong> participante(s)
+            </span>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-rose-600 transition-colors cursor-pointer"
+            >
+              <X size={11} />
+              <span>Limpar</span>
+            </button>
+          </div>
+        )}
+
+        {/* Painel de Filtros Avançados */}
+        {filtersOpen && (
+          <div className="pt-2 border-t border-slate-100 space-y-2 animate-in fade-in duration-150">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Temporada</label>
+                <select className={selectCls} value={currentSeasonId} onChange={event => setSeasonId(event.target.value)}>
+                  {data.seasons.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Empresa</label>
+                <select className={selectCls} value={clientId} onChange={event => { setClientId(event.target.value); setPostId(''); }}>
+                  <option value="">Todas</option>
+                  {data.clients.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Posto</label>
+                <select className={selectCls} value={postId} onChange={event => setPostId(event.target.value)}>
+                  <option value="">Todos</option>
+                  {clientPosts.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Função</label>
+                <select className={selectCls} value={role} onChange={event => setRole(event.target.value)}>
+                  <option value="">Todas</option>
+                  {roles.map(item => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Classificação</label>
+                <select className={selectCls} value={badge} onChange={event => setBadge(event.target.value)}>
+                  <option value="">Todas</option>
+                  <option value="ouro">Ouro</option>
+                  <option value="prata">Prata</option>
+                  <option value="bronze">Bronze</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {filtersOpen && <section className="ranking-filters" aria-label="Filtros do ranking">
-        <label><span>Temporada</span><select className={selectCls} value={currentSeasonId} onChange={event => setSeasonId(event.target.value)}>{data.seasons.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <label className="ranking-search"><span>Buscar colaborador</span><div><Search size={15} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Nome ou matrícula" /></div></label>
-        <label><span>Empresa</span><select className={selectCls} value={clientId} onChange={event => { setClientId(event.target.value); setPostId(''); }}><option value="">Todas</option>{data.clients.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <label><span>Posto</span><select className={selectCls} value={postId} onChange={event => setPostId(event.target.value)}><option value="">Todos</option>{clientPosts.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <label><span>Função</span><select className={selectCls} value={role} onChange={event => setRole(event.target.value)}><option value="">Todas</option>{roles.map(item => <option key={item} value={item}>{item}</option>)}</select></label>
-        <label><span>Classificação</span><select className={selectCls} value={badge} onChange={event => setBadge(event.target.value)}><option value="">Todas</option><option value="ouro">Ouro</option><option value="prata">Prata</option><option value="bronze">Bronze</option><option value="diamante">Diamante</option></select></label>
-        <button className="clear-ranking-filters" onClick={clearFilters}><X size={15} /> Limpar</button>
-      </section>}
+      <section className="bg-white rounded-2xl p-3.5 sm:p-5 border border-slate-100 shadow-sm overflow-hidden">
+        {/* Table Title Bar */}
+        <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 mb-2">
+          <div className="flex items-center gap-2">
+            <Trophy size={17} className="text-[#071e4d]" />
+            <strong className="text-sm sm:text-base font-bold text-[#071e4d]">
+              Classificação da temporada
+            </strong>
+          </div>
+          <div className="flex items-center gap-0.5 text-xs font-bold text-[#2563eb] cursor-pointer hover:underline">
+            <span>{currentEmployee?.position ? `${currentEmployee.position}ª posição` : '3ª posição'}</span>
+            <ChevronRight size={13} />
+          </div>
+        </div>
 
-      <section className="ranking-table-card">
-        <div className="ranking-table-title"><div><Trophy size={17} /><strong>Classificação da temporada</strong></div><span>{rows.length} resultado{rows.length === 1 ? '' : 's'}</span></div>
-        <div className="ranking-table-scroll"><table>
-          <thead><tr><th>Posição</th><th>Colaborador</th><th>Empresa / posto</th><th>Função</th><th>Avaliações</th><th>Pontos</th><th>Classificação</th></tr></thead>
-          <tbody>{rows.map((item, index) => {
-            const employeeId = item.employeeId || item.id;
-            const mine = employeeId === currentEmployeeId;
-            return <tr key={employeeId} className={mine ? 'is-current-employee' : ''}>
-              <td><span className={`rank-position rank-${item.position || index + 1}`}>{item.position || index + 1}º</span></td>
-              <td><div className="ranking-person"><Avatar name={item.name} src={item.photo} size="sm" /><span><strong>{item.name}</strong><small>{item.registration}{mine ? ' · Você' : ''}</small></span></div></td>
-              <td><strong>{item.client}</strong><small>{item.post}</small></td><td>{item.role}</td><td>{item.evaluations || 0}</td><td className="ranking-points">{item.score}</td><td><span className={`ranking-badge badge-${item.badge || 'none'}`}>{item.badge || 'Sem classificação'}</span></td>
-            </tr>;
-          })}{!rows.length && <tr><td colSpan={7} className="ranking-empty">Nenhum resultado encontrado para os filtros selecionados.</td></tr>}</tbody>
-        </table></div>
-        <footer>Resultados reais de {currentSeason?.name || 'temporada não selecionada'}.</footer>
+        {/* Guaranteed Fit Table */}
+        <div className="w-full overflow-hidden">
+          <table className="w-full table-fixed text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <th className="py-2 px-1 w-10 text-center">POSIÇÃO</th>
+                <th className="py-2 px-2 w-[38%]">COLABORADOR</th>
+                <th className="py-2 px-2 w-[34%]">EMPRESA / POSTO</th>
+                <th className="py-2 px-1 w-[18%] text-right">PONTUAÇÃO</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {rows.map((item, index) => {
+                const employeeId = item.employeeId || item.id;
+                const mine = employeeId === currentEmployeeId;
+                const pos = item.position || index + 1;
+                return (
+                  <tr key={employeeId} className={mine ? 'bg-blue-50/40' : 'hover:bg-slate-50/60'}>
+                    {/* Posição */}
+                    <td className="py-2.5 px-1 text-center">
+                      <span
+                        className={`w-5 h-5 rounded-full inline-flex items-center justify-center text-[10px] font-bold shadow-2xs ${
+                          pos === 1
+                            ? 'bg-[#f5b300] text-white'
+                            : pos === 2
+                            ? 'bg-[#cbd5e1] text-slate-800'
+                            : pos === 3
+                            ? 'bg-[#fdba74] text-white'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {pos}
+                      </span>
+                    </td>
+
+                    {/* Colaborador */}
+                    <td className="py-2.5 px-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Avatar name={item.name} src={item.photo} size="xs" />
+                        <span className="font-bold text-slate-900 text-xs truncate" title={item.name}>
+                          {item.name}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Empresa / Posto */}
+                    <td className="py-2.5 px-2">
+                      <div className="min-w-0">
+                        <strong className="block text-[11px] text-slate-800 font-bold truncate" title={item.client}>
+                          {item.client}
+                        </strong>
+                        <small className="block text-[10px] text-slate-400 truncate" title={item.post}>
+                          {item.post}
+                        </small>
+                      </div>
+                    </td>
+
+                    {/* Pontuação */}
+                    <td className="py-2.5 px-1 text-right font-extrabold text-xs text-slate-900">
+                      {item.score}
+                    </td>
+                  </tr>
+                );
+              })}
+              {!rows.length && (
+                <tr>
+                  <td colSpan={4} className="py-6 text-center text-slate-400 text-xs">
+                    Nenhum resultado encontrado.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer Real Results Note */}
+        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 pt-2.5 border-t border-slate-100 mt-1">
+          <Calendar size={12} className="text-slate-400 flex-shrink-0" />
+          <span>Resultados reais de {currentSeason?.name || 'Setembro'}.</span>
+        </div>
       </section>
     </div>
   );

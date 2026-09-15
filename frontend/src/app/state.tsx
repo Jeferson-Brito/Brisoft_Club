@@ -1,3 +1,4 @@
+import { LoadingScreen } from "../components/ui/LoadingScreen";
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 export type Row = { id: string; [key: string]: any };
@@ -40,8 +41,23 @@ const Context = createContext<{
   data: State;
   refresh: () => Promise<void>;
   notify: (text: string) => void;
+  updateEvaluationStatus: (evalId: string, newStatus: string) => void;
 }>({} as never);
 export const useData = () => useContext(Context);
+const CACHE_KEY = "clube_state_cache";
+
+function getCachedState(): State | undefined {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && parsed.user && parsed.role) {
+      return parsed as State;
+    }
+  } catch {}
+  return undefined;
+}
+
 export function DataProvider({
   children,
   onLogout,
@@ -49,17 +65,37 @@ export function DataProvider({
   children: ReactNode;
   onLogout: () => void;
 }) {
-  const [data, setData] = useState<State>();
+  const [data, setData] = useState<State | undefined>(() => getCachedState());
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   async function refresh() {
     try {
-      setData(await api("/state"));
+      const fresh = await api("/state");
+      setData(fresh);
       setError("");
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(fresh));
+      } catch {}
     } catch (e) {
-      setError((e as Error).message);
+      if (!data) {
+        setError((e as Error).message);
+      }
       throw e;
     }
+  }
+
+  function updateEvaluationStatus(evalId: string, newStatus: string) {
+    setData((prev) => {
+      if (!prev) return prev;
+      const updatedEvals = (prev.evaluations || []).map((ev) =>
+        ev.id === evalId ? { ...ev, status: newStatus } : ev
+      );
+      const nextState = { ...prev, evaluations: updatedEvals };
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(nextState));
+      } catch {}
+      return nextState;
+    });
   }
   useEffect(() => {
     void refresh().catch(() => {});
@@ -72,20 +108,14 @@ export function DataProvider({
   }, [message]);
   if (!data)
     return (
-      <div className="loading">
-        {error || "Carregando Clube de Talentos…"}
-        {error && (
-          <>
-            <button onClick={() => void refresh().catch(() => {})}>
-              Tentar novamente
-            </button>
-            <button onClick={onLogout}>Voltar ao login</button>
-          </>
-        )}
-      </div>
+      <LoadingScreen
+        error={error}
+        onRetry={() => void refresh().catch(() => {})}
+        onLogout={onLogout}
+      />
     );
   return (
-    <Context.Provider value={{ data, refresh, notify: setMessage }}>
+    <Context.Provider value={{ data, refresh, notify: setMessage, updateEvaluationStatus }}>
       {children}
       {message && (
         <div role="status" className="toast">

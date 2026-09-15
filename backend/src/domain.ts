@@ -231,6 +231,10 @@ export const schemas: Partial<Record<Table, z.ZodType>> = {
     start: date,
     end: date,
     deadline: date,
+    clientStart: date.optional(),
+    clientDeadline: date.optional(),
+    supervisorStart: date.optional(),
+    supervisorDeadline: date.optional(),
   }),
   roles: z.object({
     name: text,
@@ -409,7 +413,7 @@ export function rankingRows(
       cycles: cycleScores.length,
       evaluations: count,
       eligible,
-      badge: eligible ? classify(score, season.rules) : null,
+      badge: eligible ? classify(score, season.rules) : (count > 0 ? classify(score, season.rules) : null),
       criteria,
       compliments,
       oldest,
@@ -430,5 +434,5 @@ export function rankingRows(
     return a.employeeId.localeCompare(b.employeeId);
   });
   let position = 0;
-  return rows.map((r): RecordData => ({ ...r, position: r.eligible ? ++position : null }));
+  return rows.map((r): RecordData => ({ ...r, position: (r.eligible || r.evaluations > 0 || r.score > 0) ? ++position : null }));
 }

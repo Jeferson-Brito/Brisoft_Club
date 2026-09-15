@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BarChart3 } from "lucide-react";
 import { useData, type Row } from "./state";
 import { Heading, DataTable, Action } from "./ui";
 export function Reports() {
@@ -64,6 +65,7 @@ export function Reports() {
     <>
       <Heading
         title="Relatórios"
+        icon={<BarChart3 size={20} className="text-[#f5b300]" />}
         description="Consulte, filtre e exporte os dados disponíveis para seu perfil."
       >
         <button className="btn secondary" onClick={() => window.print()}>

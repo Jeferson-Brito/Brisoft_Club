@@ -2,7 +2,8 @@ import { useEffect, useState, useMemo } from 'react';
 import {
   ChevronRight, ChevronLeft, ChevronDown, Send, MapPin,
   UserCheck, CheckCircle2, Calendar, Star, FileText,
-  Building2, RotateCcw, Check, X, Briefcase, Clock
+  Building2, RotateCcw, Check, X, Briefcase, Clock,
+  SkipForward, AlertCircle
 } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { api } from '../../app/state';
@@ -35,6 +36,8 @@ export default function Avaliar() {
   const [expandedInfo, setExpandedInfo] = useState(false);
   const [hasSavedDraft, setHasSavedDraft] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [skipModalOpen, setSkipModalOpen] = useState(false);
+  const [skipReason, setSkipReason] = useState('');
 
   const criteria = useMemo(() => (season?.rules?.criteria || []).map((criterion: any, index: number) => ({
     id: String(criterion.id),
@@ -49,8 +52,9 @@ export default function Avaliar() {
   const scale = season?.rules?.scale || [];
 
   useEffect(() => {
-    const requested = params.get('participant');
-    const index = toEvaluate.findIndex(item => item.id === requested);
+    const requested = params.get('participant') || params.get('colaborador');
+    if (!requested) return;
+    const index = toEvaluate.findIndex(item => item.id === requested || item.participantId === requested);
     if (index >= 0) setCurrentIdx(index);
   }, [params, toEvaluate]);
 
@@ -184,6 +188,48 @@ export default function Avaliar() {
     return acc + (Number(opt?.points || 0) * c.weight);
   }, 0).toFixed(1);
 
+
+
+  const handleSkip = async () => {
+    if (!employee || busy) return;
+    if (skipReason.trim().length < 3) {
+      notify('Por favor, informe o motivo para pular esta avaliação (mínimo 3 caracteres).');
+      return;
+    }
+    setBusy(true);
+    try {
+      await api('/evaluations', {
+        participantId: employee.participantId,
+        status: 'pulado',
+        answers: [],
+        compliment: '',
+        reason: skipReason.trim(),
+      });
+
+      if (draftStorageKey) {
+        localStorage.removeItem(draftStorageKey);
+      }
+
+      setRatings({});
+      setComments({});
+      setCompliment('');
+      setCurrentCriterionIdx(0);
+      setStep('criterion');
+      setHasSavedDraft(false);
+      setSkipModalOpen(false);
+      setSkipReason('');
+      notify('Avaliação pulada. O colaborador continua na lista e poderá ser avaliado posteriormente.');
+      await refresh();
+      if (currentIdx < toEvaluate.length - 1) {
+        setCurrentIdx(prev => prev + 1);
+      } else {
+        setCurrentIdx(0);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!employee || busy) return;
     if (!allRated) {
@@ -265,8 +311,7 @@ export default function Avaliar() {
     <div className="space-y-4 page-enter mobile-evaluation pb-8">
       {/* ── Fixed / Sticky Employee Header Card ── */}
       <div
-        className="sticky z-30 bg-white/95 backdrop-blur-md rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200/90 transition-all"
-        style={{ position: 'sticky', top: 'var(--topbar-h, 58px)' }}
+        className="bg-white rounded-2xl p-3.5 sm:p-4 shadow-sm border border-slate-100 transition-all"
       >
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-3">
           {/* Left: Avatar + Colaborador Info */}
@@ -284,13 +329,8 @@ export default function Avaliar() {
             </div>
 
             <div className="min-w-0 flex-1">
-              <button
-                type="button"
-                onClick={() => setExpandedInfo(prev => !prev)}
-                className="w-full text-left group"
-                aria-expanded={expandedInfo}
-              >
-                {/* Row 1: Name (truncates) + Counter fixed right */}
+              <div className="w-full text-left group">
+                {/* Row 1: Name (truncates) + Counter + Pular */}
                 <div className="flex items-center gap-2 min-w-0">
                   <h2 className="text-sm sm:text-base font-extrabold text-slate-800 leading-tight truncate min-w-0 flex-1">
                     {employee?.name}
@@ -298,6 +338,21 @@ export default function Avaliar() {
                   <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 flex-shrink-0" title={`Colaborador ${currentIdx + 1} de ${total}`}>
                     {currentIdx + 1}/{total}
                   </span>
+                  {employee?.windowOpen && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSkipReason(employee?.skipReason || '');
+                        setSkipModalOpen(true);
+                      }}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-[11px] transition-all shadow-2xs active:scale-95 cursor-pointer flex-shrink-0"
+                      title="Pular a avaliação deste colaborador"
+                    >
+                      <SkipForward size={11} className="text-amber-700" />
+                      <span>Pular</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Row 2: Role badge */}
@@ -317,12 +372,16 @@ export default function Avaliar() {
                     <MapPin size={12} className="text-slate-400 flex-shrink-0" />
                     <span className="truncate">{employee?.post}</span>
                   </div>
-                  <span className="ml-auto flex items-center gap-0.5 text-[10px] text-blue-500 font-semibold group-hover:text-blue-700 transition-colors flex-shrink-0">
-                    {expandedInfo ? 'Recolher' : 'Ver mais'}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedInfo(prev => !prev)}
+                    className="ml-auto flex items-center gap-0.5 text-[10px] text-blue-500 font-semibold hover:text-blue-700 transition-colors flex-shrink-0 cursor-pointer"
+                  >
+                    <span>{expandedInfo ? 'Recolher' : 'Ver mais'}</span>
                     <ChevronDown size={11} className={`transition-transform duration-200 ${expandedInfo ? 'rotate-180' : ''}`} />
-                  </span>
+                  </button>
                 </div>
-              </button>
+              </div>
 
               {/* Expandable details panel */}
               {expandedInfo && (
@@ -330,7 +389,7 @@ export default function Avaliar() {
                   {employee?.registration && (
                     <div>
                       <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Matrícula</div>
-                      <div className="text-xs font-bold text-slate-700">{employee.registration}</div>
+                      <div className="text-sm font-bold text-[#071e4d]">{employee.registration}</div>
                     </div>
                   )}
                   {employee?.admissionDate && (
@@ -362,13 +421,47 @@ export default function Avaliar() {
             </div>
           </div>
 
+
+
         </div>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-4 items-start">
         {/* ── Main form column ── */}
         <div className="flex-1 min-w-0 w-full space-y-3.5">
-          {confirmed ? (
+          {/* Banner if employee was previously skipped */}
+          {employee?.isSkipped && employee?.windowOpen && (
+            <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-3.5 flex items-start gap-3 text-amber-950 shadow-2xs">
+              <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 text-xs">
+                <span className="font-extrabold">Você pulou este colaborador anteriormente: </span>
+                <span className="italic">"{employee.skipReason}"</span>
+                <p className="text-[11px] text-amber-800/90 mt-1">
+                  Caso deseje avaliá-lo agora, você pode preencher as notas e confirmar o envio normalmente.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* If collaborator is outside window */}
+          {!employee?.windowOpen ? (
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 text-center space-y-3 shadow-xs">
+              <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center mx-auto shadow-inner">
+                <Clock size={28} />
+              </div>
+              <h3 className="text-base sm:text-lg font-extrabold text-slate-800">
+                {employee?.windowStatus === 'upcoming'
+                  ? 'Período de avaliação ainda não iniciado para o seu perfil'
+                  : 'Prazo de avaliação encerrado para o seu perfil'}
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
+                {employee?.windowStatus === 'upcoming'
+                  ? `Conforme a configuração da temporada, o período de avaliação para o seu perfil estará disponível a partir de ${employee?.windowStartLabel || 'data definida'}${employee?.windowEndLabel ? ` até ${employee.windowEndLabel}` : ''}. Você pode visualizar os dados do colaborador, mas a avaliação estará habilitada apenas durante o período.`
+                  : `O prazo de avaliação para o seu perfil encerrou em ${employee?.windowEndLabel || 'data definida'}.`}
+              </p>
+
+            </div>
+          ) : confirmed ? (
             <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-8 flex flex-col items-center justify-center gap-2 text-center shadow-xs">
               <div className="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-sm">
                 <CheckCircle2 size={26} />
@@ -384,7 +477,7 @@ export default function Avaliar() {
               {/* Stepper Header */}
               <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-black shadow-2xs">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#f59e0b] text-white text-xs font-black shadow-2xs">
                     {currentCriterionIdx + 1}
                   </span>
                   <span className="text-xs font-bold text-slate-700">
@@ -418,11 +511,7 @@ export default function Avaliar() {
                       }
                     }}
                     className={`h-2 rounded-full transition-all cursor-pointer ${
-                      i === currentCriterionIdx
-                        ? 'bg-blue-600 ring-2 ring-blue-300'
-                        : ratings[c.id] !== undefined
-                        ? 'bg-emerald-500 hover:opacity-80'
-                        : 'bg-slate-200 hover:bg-slate-300'
+                      i <= currentCriterionIdx ? 'bg-[#071e4d]' : 'bg-slate-200'
                     }`}
                     title={`Critério ${i + 1}: ${c.name} ${ratings[c.id] ? `(Nota: ${ratings[c.id]})` : ''}`}
                   />
@@ -534,7 +623,7 @@ export default function Avaliar() {
                     }
                   }}
                   disabled={!canAdvanceCurrentCriterion}
-                  className="flex items-center gap-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed px-5 py-2.5 rounded-xl transition-all shadow-md active:scale-98 cursor-pointer ml-auto min-h-[42px]"
+                  className="flex items-center gap-2 text-xs font-bold text-white bg-[#071e4d] hover:bg-[#0c2e75] disabled:opacity-40 disabled:cursor-not-allowed px-5 py-2.5 rounded-xl transition-all shadow-md active:scale-98 cursor-pointer ml-auto min-h-[42px]"
                 >
                   <span>
                     {currentCriterionIdx < criteria.length - 1 ? 'Próximo critério' : 'Ver resumo da avaliação'}
@@ -656,7 +745,7 @@ export default function Avaliar() {
                   type="button"
                   onClick={handleSubmit}
                   disabled={busy}
-                  className="flex items-center justify-center gap-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-6 py-2.5 rounded-xl transition-all shadow-md active:scale-98 cursor-pointer w-full sm:w-auto min-h-[44px]"
+                  className="flex items-center justify-center gap-2 text-xs font-bold text-white bg-[#071e4d] hover:bg-[#0c2e75] disabled:opacity-50 px-6 py-2.5 rounded-xl transition-all shadow-md active:scale-98 cursor-pointer w-full sm:w-auto min-h-[44px]"
                 >
                   {busy ? 'Enviando avaliação…' : 'Confirmar e Enviar Avaliação'}
                   <Send size={15} />
@@ -667,6 +756,84 @@ export default function Avaliar() {
         </div>
 
       </div>
+
+      {/* ── Modal de pular avaliação com motivo obrigatório ── */}
+      {skipModalOpen && employee && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in"
+          onClick={() => setSkipModalOpen(false)}
+        >
+          <div
+            className="relative bg-white rounded-3xl p-5 sm:p-6 shadow-2xl border border-slate-200 max-w-md w-full space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl overflow-hidden bg-slate-900 flex items-center justify-center flex-shrink-0 shadow-md ring-2 ring-slate-100">
+                  <Avatar name={employee?.name ?? ''} src={employee?.photo} size="md" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-800 leading-tight">
+                    Pular avaliação
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {employee.name} · {employee.role}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSkipModalOpen(false)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 text-xs text-slate-600 leading-relaxed">
+              Caso você não conheça o colaborador ou não tenha contato direto para avaliar o seu trabalho, você pode pular esta avaliação. O colaborador continuará na sua lista para caso deseje avaliá-lo mais tarde.
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700">
+                Motivo pelo qual não irá avaliar este colaborador <span className="text-rose-600">*</span>
+              </label>
+              <textarea
+                rows={3}
+                value={skipReason}
+                onChange={e => setSkipReason(e.target.value)}
+                placeholder="Informe o motivo (obrigatório, mínimo 3 caracteres, ex: Não conheço o colaborador, não atuo no mesmo posto...)"
+                className="w-full text-xs border border-slate-300 rounded-2xl p-3 outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 resize-none placeholder:text-slate-400"
+                autoFocus
+              />
+              <div className="flex justify-between items-center text-[10px] text-slate-400 px-1">
+                <span>Campo obrigatório</span>
+                <span>{skipReason.trim().length} / 500 caracteres</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSkipModalOpen(false)}
+                disabled={busy}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSkip}
+                disabled={busy || skipReason.trim().length < 3}
+                className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                <SkipForward size={14} />
+                <span>{busy ? 'Gravando…' : 'Confirmar e Pular'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal de visualização ampliada da foto do colaborador ── */}
       {photoModalOpen && (

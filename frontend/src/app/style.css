@@ -108,7 +108,7 @@ textarea {
   z-index: 40;
 }
 .sidebar-shell aside {
-  background: #f4faf7 !important;
+  background: #071e4d !important;
 }
 .app-main {
   flex: 1;
@@ -116,8 +116,8 @@ textarea {
 }
 .app-topbar {
   height: 65px;
-  background: #fff;
-  border-bottom: 1px solid #e8eef6;
+  background: #071e4d !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   gap: 18px;
@@ -286,22 +286,23 @@ textarea {
   flex-wrap: wrap;
 }
 .btn {
-  background: #1b6ef3;
+  background: #071e4d;
   color: white;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 11px 17px;
-  border: 1px solid #1b6ef3;
-  border-radius: 9px;
+  padding: 10px 18px;
+  border: 1px solid #071e4d;
+  border-radius: 12px;
   font-size: 12px;
   font-weight: 650;
   white-space: nowrap;
   text-decoration: none;
 }
 .btn:hover {
-  background: #155aca;
+  background: #0c2e75;
+  border-color: #0c2e75;
 }
 .btn.secondary {
   background: #fff;
@@ -519,25 +520,34 @@ td:first-child {
   margin-top: 9px;
 }
 .tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 20px;
   overflow-x: auto;
-  padding-bottom: 3px;
+  padding: 4px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 .tabs button {
-  font-size: 12px;
-  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 16px;
   white-space: nowrap;
-  border-radius: 9px;
-  background: #fff;
-  border: 1px solid #e3eaf3;
-  color: #718097;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 .tabs button.active {
-  background: #1b6ef3;
-  border-color: #1b6ef3;
-  color: #fff;
+  background: #071e4d !important;
+  border-color: #071e4d !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(7, 30, 77, 0.25);
 }
 .form-grid {
   display: grid;
@@ -568,16 +578,17 @@ td:first-child {
   backdrop-filter: blur(3px);
 }
 .detail-modal {
-  width: min(760px, calc(100vw - 32px));
-  max-width: 760px;
-  max-height: min(86vh, 860px);
+  width: min(700px, calc(100vw - 32px));
+  max-width: 700px;
+  height: min(85vh, 620px);
+  max-height: min(85vh, 620px);
   margin: auto;
   padding: 0;
   overflow: hidden;
   color: var(--minimal-text);
   background: var(--minimal-surface);
   border: 1px solid var(--minimal-border);
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow: 0 24px 80px rgb(16 24 40 / 22%);
 }
 .detail-modal::backdrop {
@@ -585,10 +596,13 @@ td:first-child {
   backdrop-filter: blur(3px);
 }
 .detail-modal-content {
-  max-height: min(86vh, 860px);
+  height: 100%;
+  max-height: 100%;
   padding: 20px;
-  overflow: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
 .detail-modal .tabs,
 .detail-modal [class*="border-b"] {
@@ -1011,15 +1025,7 @@ td:first-child {
     --topbar-h: 58px;
   }
   .app-topbar {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 40 !important;
-    padding: 0 12px;
-    height: 58px !important;
-    gap: 8px;
-    background: rgba(255, 255, 255, 0.96) !important;
-    backdrop-filter: blur(10px) !important;
-    -webkit-backdrop-filter: blur(10px) !important;
+    display: none !important;
   }
   .desktop-only-sidebar-toggle {
     display: none !important;
@@ -1337,26 +1343,37 @@ select:focus {
   background: #fff;
 }
 .tabs {
-  gap: 22px;
-  padding: 0 2px;
-  border-bottom: 1px solid var(--minimal-border);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding: 4px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 .tabs button {
-  margin-bottom: -1px;
-  padding: 10px 2px;
-  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 16px;
+  white-space: nowrap;
+  border-radius: 10px;
   background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
+  border: none;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 .tabs button:hover {
-  color: #344054;
+  color: #0f172a;
+  background: #f1f5f9;
 }
 .tabs button.active {
-  color: var(--minimal-blue);
-  background: transparent;
-  border-color: var(--minimal-blue);
+  background: #071e4d !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(7, 30, 77, 0.25);
 }
 .table-panel {
   border-radius: 11px;
@@ -1525,12 +1542,17 @@ tbody tr:hover {
   }
   .detail-modal {
     width: calc(100vw - 16px);
-    max-height: calc(100dvh - 16px);
-    border-radius: 12px;
+    height: calc(100dvh - 24px);
+    max-height: calc(100dvh - 24px);
+    border-radius: 14px;
   }
   .detail-modal-content {
-    max-height: calc(100dvh - 16px);
+    height: 100%;
+    max-height: 100%;
     padding: 14px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
   .detail-modal-content > div > .flex.border-b {
     overflow-x: auto;
@@ -1684,3 +1706,181 @@ tbody tr:hover {
   }
 }
 
+
+
+/* ── Mobile Touch, Tap & Selection Enhancements ── */
+
+/* 1. Global: Remove annoying grey/blue tap highlight boxes on mobile */
+*,
+*::before,
+*::after {
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+/* 2. Prevent accidental icon/text selection on interactive components */
+button,
+a,
+[role="button"],
+.icon-btn,
+.user-button,
+.mobile-bottom-nav,
+.mobile-bottom-nav a,
+.mobile-bottom-nav button,
+svg,
+svg * {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+/* 3. Disable sticky focus outlines on touch/pointer coarse */
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
+[role="button"]:focus:not(:focus-visible),
+.icon-btn:focus:not(:focus-visible),
+.user-button:focus:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* 4. On touch devices (screens without a mouse hover), prevent sticky hover states */
+@media (hover: none) or (pointer: coarse) {
+  button:focus,
+  a:focus,
+  button:focus-visible,
+  a:focus-visible {
+    outline: none !important;
+  }
+
+  .icon-btn:hover:not(:active),
+  .user-button:hover:not(:active),
+  .mobile-bottom-nav a:hover:not(.active):not(:active),
+  .mobile-bottom-nav button:hover:not(:active) {
+    background-color: transparent !important;
+  }
+
+  /* Responsive micro-feedback while finger is pressing down, cleanly resets on lift */
+  .icon-btn:active,
+  .user-button:active,
+  .mobile-bottom-nav a:active,
+  .mobile-bottom-nav button:active {
+    opacity: 0.65;
+    transform: scale(0.96);
+    transition: transform 0.08s ease, opacity 0.08s ease;
+  }
+}
+
+
+/* ── Loading Animation ── */
+.loading-progress-bar {
+  width: 45%;
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #1b6ef3, #38bdf8, #1b6ef3);
+  background-size: 200% 100%;
+  animation: loading-indeterminate 1.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes loading-indeterminate {
+  0% {
+    transform: translateX(-150%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+/* Mobile overflow prevention */
+@media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+  .app-shell {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+  .app-main {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+  .page-content {
+    padding: 10px 10px 62px 10px !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+}
+
+/* ── Animação suave de flutuação da coroa do líder ── */
+@keyframes crownFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(-1.5deg);
+  }
+}
+.animate-crown-float {
+  animation: crownFloat 2.2s ease-in-out infinite;
+  display: inline-block;
+  transform-origin: bottom center;
+}
+
+/* ── Padrão Corporativo Grupo Combate para Todas as Tabelas ── */
+.table-panel thead,
+table thead,
+.table-scroll thead,
+.robbyson-table thead,
+thead {
+  background: #071e4d !important;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1) !important;
+}
+.table-panel th,
+table th,
+.table-scroll th,
+.robbyson-table th,
+thead th {
+  background: #071e4d !important;
+  color: #ffffff !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  padding-block: 13px !important;
+  padding-inline: 14px !important;
+}
+.table-panel th button,
+table th button,
+.table-scroll th button,
+thead th button {
+  color: #ffffff !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.table-panel {
+  border-radius: 16px !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
+  background: #ffffff !important;
+  overflow: hidden !important;
+}
+.table-toolbar {
+  padding: 16px 20px !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+.table-toolbar h2 {
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Users, CheckCircle2, Clock, Trophy, Filter,
-  Download, Plus, MoreHorizontal, X, Star, Target, BarChart3, Eye,
-  ShieldAlert, Paperclip, Trash2,
+  Download, Plus, X, Star, Target, BarChart3, Eye,
+  ShieldAlert, Paperclip, MoreVertical, Pencil,
 } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { usePhotoData } from '../../app/photo-data';
@@ -25,6 +25,21 @@ export default function Colaboradores() {
   const [selectedPost, setSelectedPost] = useState('Todos');
   const [selectedRole, setSelectedRole] = useState('Todas');
   const [selectedStatus, setSelectedStatus] = useState('Todos');
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activeMenuId) return;
+    const handleClose = () => setActiveMenuId(null);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActiveMenuId(null);
+    };
+    window.addEventListener('click', handleClose);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('click', handleClose);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [activeMenuId]);
 
   const filteredEmployees = employees.filter(e => {
     if (searchName && !`${e.name} ${e.registration}`.toLowerCase().includes(searchName.toLowerCase())) return false;
@@ -55,6 +70,7 @@ export default function Colaboradores() {
   const selectedActions = data.employeeActions
     .filter(item => item.employeeId === selectedEmp?.id)
     .sort((a, b) => String(b.appliedAt).localeCompare(String(a.appliedAt)));
+  // @ts-ignore
   const removeEmployee = async (employee: any) => {
     if (!window.confirm(`Excluir ${employee.name} permanentemente? O acesso, os vínculos e o histórico de avaliações deste colaborador também serão removidos.`)) return;
     try {
@@ -70,9 +86,22 @@ export default function Colaboradores() {
 
   return (
     <div className="space-y-3.5 page-enter">
-      <div className="flex justify-end">
-        <button onClick={() => setCreating(true)} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all shadow-xs cursor-pointer">
-          <Plus size={14} />
+      {/* ── Cabeçalho da Página Conforme Imagem de Referência ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 pb-1">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#071e4d] text-white flex items-center justify-center shadow-xs flex-shrink-0">
+            <Users size={20} />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 leading-tight">Colaboradores</h1>
+            <p className="text-xs text-slate-500 font-medium">Gerencie os colaboradores da sua equipe.</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setCreating(true)}
+          className="flex items-center gap-2 bg-[#071e4d] hover:bg-[#0c2e75] active:bg-[#06183d] text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition-all shadow-xs cursor-pointer self-start sm:self-auto"
+        >
+          <Plus size={16} />
           <span>Novo colaborador</span>
         </button>
       </div>
@@ -96,7 +125,7 @@ export default function Colaboradores() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-lg font-bold text-slate-800 leading-none">{evaluatedCount}</div>
-            <div className="text-xs font-medium text-slate-500 mt-0.5 truncate">Avaliados</div>
+            <div className="text-xs font-medium text-slate-500 mt-0.5 truncate">Ativados</div>
             <div className="text-[10px] text-slate-400 mt-0.5 mb-1">{evaluatedPct}% do total</div>
             <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
               <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${evaluatedPct}%` }} />
@@ -214,80 +243,147 @@ export default function Colaboradores() {
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left">
                 <thead>
-                  <tr className="bg-slate-50/80 text-slate-500 font-semibold border-b border-slate-200/80 text-[11px] whitespace-nowrap">
-                    <th className="py-2.5 px-3 text-center w-10">#</th>
-                    <th className="py-2.5 px-3 text-center w-12">Foto</th>
-                    <th className="py-2.5 px-3">Nome</th>
-                    <th className="py-2.5 px-3">Matrícula</th>
-                    <th className="py-2.5 px-3">Função</th>
-                    <th className="py-2.5 px-3">Cliente / Posto</th>
-                    <th className="py-2.5 px-3 text-center">Pontuação</th>
-                    <th className="py-2.5 px-3 text-center">Classificação</th>
-                    <th className="py-2.5 px-3 text-center">Status</th>
-                    <th className="py-2.5 px-3 text-center w-12">Ações</th>
+                  <tr className="bg-[#071e4d] text-white font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
+                    <th className="py-3 px-3 text-center w-12">#</th>
+                    <th className="py-3 px-3 text-center w-14">Foto</th>
+                    <th className="py-3 px-3">Nome</th>
+                    <th className="py-3 px-3">Matrícula</th>
+                    <th className="py-3 px-3">Função</th>
+                    <th className="py-3 px-3">Cliente / Posto</th>
+                    <th className="py-3 px-3 text-center">Pontuação</th>
+                    <th className="py-3 px-3 text-center">Classificação</th>
+                    <th className="py-3 px-3 text-center">Status</th>
+                    <th className="py-3 px-3 text-center w-14">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredEmployees.slice(0, 10).map((emp, idx) => {
+                  {filteredEmployees.map((emp, idx) => {
                     const pos = idx + 1;
                     const isSelected = selectedEmp?.id === emp.id;
                     const posBadge =
-                      pos === 1 ? 'w-5 h-5 rounded-full bg-amber-400 text-white font-black text-[10px] flex items-center justify-center mx-auto shadow-2xs' :
-                      pos === 2 ? 'w-5 h-5 rounded-full bg-slate-300 text-slate-800 font-black text-[10px] flex items-center justify-center mx-auto' :
-                      pos === 3 ? 'w-5 h-5 rounded-full bg-amber-700/80 text-white font-black text-[10px] flex items-center justify-center mx-auto' :
-                      'font-bold text-slate-400 text-center block text-xs';
+                      pos === 1 ? 'w-6 h-6 rounded-full bg-amber-500 text-white font-black text-xs flex items-center justify-center mx-auto shadow-xs' :
+                      pos === 2 ? 'w-6 h-6 rounded-full bg-slate-400 text-white font-black text-xs flex items-center justify-center mx-auto' :
+                      pos === 3 ? 'w-6 h-6 rounded-full bg-amber-700 text-white font-black text-xs flex items-center justify-center mx-auto' :
+                      'w-6 h-6 rounded-full bg-slate-100 text-slate-600 font-bold text-xs flex items-center justify-center mx-auto';
 
-                    const scoreBadge =
-                      emp.badge === 'ouro' ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                      emp.badge === 'prata' ? 'bg-slate-100 text-slate-700 border-slate-300' :
-                      'bg-orange-100 text-orange-800 border-orange-200';
+                    const hasGold = emp.score > 0 || emp.badge === 'ouro';
 
                     return (
                       <tr
                         key={emp.id}
                         onClick={() => setSelectedEmp(emp)}
-                        className={`hover:bg-slate-50/70 cursor-pointer transition-colors ${
-                          isSelected ? 'bg-blue-50/50' : ''
+                        className={`hover:bg-slate-50/80 cursor-pointer transition-colors border-b border-slate-100 ${
+                          isSelected ? 'bg-blue-50/60' : ''
                         }`}
                       >
-                        <td className="py-2 px-3 whitespace-nowrap text-center">
+                        <td className="py-3 px-3 text-center">
                           <span className={posBadge}>{pos}</span>
                         </td>
-                        <td className="py-2 px-3 whitespace-nowrap text-center">
-                          <div className="flex justify-center">
+                        <td className="py-3 px-3 text-center">
+                          <div className="w-8 h-8 rounded-full ring-2 ring-slate-200 overflow-hidden mx-auto bg-white flex items-center justify-center">
                             <Avatar name={emp.name} src={emp.photo} size="sm" />
                           </div>
                         </td>
-                        <td className="py-2 px-3 font-semibold text-slate-800 whitespace-nowrap">{emp.name}</td>
-                        <td className="py-2 px-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">{emp.registration}</td>
-                        <td className="py-2 px-3 text-slate-600 whitespace-nowrap">{emp.role}</td>
-                        <td className="py-2 px-3 whitespace-nowrap">
-                          <div className="text-slate-700 font-medium">{emp.client}</div>
-                          <div className="text-[10px] text-slate-400">{emp.post}</div>
+                        <td className="py-3 px-3 font-extrabold text-slate-900 whitespace-nowrap">
+                          {emp.name}
                         </td>
-                        <td className="py-2 px-3 whitespace-nowrap text-center font-black text-slate-800">{emp.score}</td>
-                        <td className="py-2 px-3 whitespace-nowrap text-center">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold border ${scoreBadge}`}>
-                            {emp.badge ? emp.badge.charAt(0).toUpperCase() + emp.badge.slice(1) : '—'}
-                          </span>
+                        <td className="py-3 px-3 text-slate-600 font-medium">
+                          {emp.registration}
                         </td>
-                        <td className="py-2 px-3 whitespace-nowrap text-center">
-                          {emp.status === 'ativo' ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                              <span>Ativo</span>
+                        <td className="py-3 px-3 text-slate-600 font-medium">
+                          {emp.role}
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="font-bold text-slate-800 leading-tight">{emp.client}</div>
+                          <div className="text-[11px] text-slate-400 font-medium">{emp.post}</div>
+                        </td>
+                        <td className="py-3 px-3 text-center font-black text-slate-900 text-sm">
+                          {emp.score}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          {hasGold ? (
+                            <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                              🏆 Ouro
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                              <span>Licença</span>
-                            </span>
+                            <span className="text-slate-400 font-bold">—</span>
                           )}
                         </td>
-                        <td className="py-2 px-3 whitespace-nowrap text-center">
-                          <div className="inline-flex items-center gap-1">
-                            <button onClick={(event) => { event.stopPropagation(); setEditing(emp); }} aria-label={`Editar ${emp.name}`} className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors"><MoreHorizontal size={14} /></button>
-                            {data.role.globalScope && <button onClick={(event) => { event.stopPropagation(); void removeEmployee(emp); }} aria-label={`Excluir ${emp.name}`} data-help="Exclui permanentemente o colaborador, seu acesso e todo o histórico relacionado." className="text-slate-400 hover:text-red-600 p-1 rounded-md transition-colors"><Trash2 size={14} /></button>}
+                        <td className="py-3 px-3 text-center">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Ativo
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                          <div className="relative inline-block text-left">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMenuId(activeMenuId === emp.id ? null : emp.id);
+                              }}
+                              className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                                activeMenuId === emp.id
+                                  ? 'text-[#071e4d] bg-slate-200 shadow-inner'
+                                  : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                              }`}
+                              title="Opções do colaborador"
+                              aria-haspopup="true"
+                              aria-expanded={activeMenuId === emp.id}
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+
+                            {activeMenuId === emp.id && (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className={`absolute right-0 ${
+                                  idx >= filteredEmployees.length - 2 && filteredEmployees.length > 2
+                                    ? 'bottom-full mb-1'
+                                    : 'top-full mt-1'
+                                } w-52 bg-white rounded-xl shadow-[0_10px_35px_rgba(0,0,0,0.15)] border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    setSelectedEmp(emp);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-[#071e4d] transition-colors cursor-pointer text-left"
+                                >
+                                  <Eye size={15} className="text-[#071e4d] flex-shrink-0" />
+                                  <span>Ver perfil do colaborador</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveMenuId(null);
+                                    setEditing(emp);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-[#071e4d] transition-colors cursor-pointer text-left"
+                                >
+                                  <Pencil size={15} className="text-[#f5b300] flex-shrink-0" />
+                                  <span>Editar colaborador</span>
+                                </button>
+
+                                {data.role.globalScope && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMenuId(null);
+                                      setSelectedEmp(emp);
+                                      setCreatingAction(true);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer text-left border-t border-slate-100 mt-1 pt-1.5"
+                                  >
+                                    <ShieldAlert size={15} className="text-rose-500 flex-shrink-0" />
+                                    <span>Registrar ocorrência</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -418,7 +514,7 @@ export default function Colaboradores() {
                 </div>
 
                 {/* Profile Button */}
-                <button type="button" onClick={() => setEditing(selectedEmp)} className="w-full flex items-center justify-center gap-1.5 border border-blue-200 text-blue-600 hover:bg-blue-50 py-2 rounded-lg text-xs font-bold transition-colors">
+                <button type="button" onClick={() => { const target = selectedEmp; setSelectedEmp(null); setEditing(target); }} className="w-full flex items-center justify-center gap-1.5 border border-blue-200 text-blue-600 hover:bg-blue-50 py-2 rounded-lg text-xs font-bold transition-colors">
                   <Eye size={13} />
                   <span>Editar cadastro e alocação</span>
                 </button>

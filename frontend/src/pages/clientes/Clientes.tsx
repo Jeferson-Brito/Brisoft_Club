@@ -58,9 +58,22 @@ export default function Clientes() {
 
   return (
     <div className="space-y-3.5 page-enter">
-      <div className="flex justify-end">
-        <button onClick={() => setCreating(true)} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all shadow-xs cursor-pointer">
-          <Plus size={14} />
+      {/* ── Cabeçalho da Página Padrão Corporativo Grupo Combate ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 pb-1">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#071e4d] text-white flex items-center justify-center shadow-xs flex-shrink-0">
+            <Building2 size={20} />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 leading-tight">Clientes</h1>
+            <p className="text-xs text-slate-500 font-medium">Gerencie as empresas e postos atendidos pela sua equipe.</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setCreating(true)}
+          className="flex items-center gap-2 bg-[#071e4d] hover:bg-[#0c2e75] active:bg-[#06183d] text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition-all shadow-xs cursor-pointer self-start sm:self-auto"
+        >
+          <Plus size={16} />
           <span>Novo cliente</span>
         </button>
       </div>
@@ -181,7 +194,7 @@ export default function Clientes() {
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left">
                 <thead>
-                  <tr className="bg-slate-50/80 text-slate-500 font-semibold border-b border-slate-200/80 text-[11px] whitespace-nowrap">
+                  <tr className="bg-[#071e4d] text-white font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
                     <th className="py-2.5 px-3 text-center w-10">#</th>
                     <th className="py-2.5 px-3">Cliente</th>
                     <th className="py-2.5 px-3">CNPJ</th>

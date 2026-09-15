@@ -54,19 +54,20 @@ export default function Historico() {
   const selectedEvalSeason = data.seasons.find(item => item.id === selectedEval?.seasonId);
   const selectedEvalCycle = data.cycles.find(item => item.id === selectedEval?.cycleId);
 
+  const requestedId = params.get('evaluation') || '';
+
   useEffect(() => {
-    const requested = params.get('evaluation');
-    if (requested) {
-      const found = evaluations.find(item => String(item.id) === requested);
-      setSelectedEval(found || null);
+    if (requestedId) {
+      const found = evaluations.find(item => String(item.id) === requestedId);
+      setSelectedEval((prev: any) => (prev?.id === found?.id ? prev : (found || null)));
     } else {
-      setSelectedEval(null);
+      setSelectedEval((prev: any) => (prev ? null : prev));
     }
-  }, [params, evaluations]);
+  }, [requestedId, evaluations]);
 
   const closeDetails = () => {
     setSelectedEval(null);
-    if (params.get('evaluation')) {
+    if (params.has('evaluation')) {
       const next = new URLSearchParams(params);
       next.delete('evaluation');
       setParams(next, { replace: true });
@@ -401,8 +402,10 @@ export default function Historico() {
         {/* ── Side Details Drawer ── */}
         {selectedEval && (
           <DetailModal label={`Detalhes da avaliação de ${selectedEval.employee}`} onClose={closeDetails}>
-          <div className="space-y-3">
-            {/* Header */}
+          <div className="flex flex-col h-full overflow-hidden">
+            {/* Pinned Top: Header + Colaborador + Tabs */}
+            <div className="space-y-2.5 flex-shrink-0 pb-2">
+              {/* Header */}
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Detalhes da Avaliação</h2>
               <button
@@ -435,9 +438,9 @@ export default function Historico() {
                 <button
                   key={tab}
                   onClick={() => setDrawerTab(tab)}
-                  className={`flex-1 py-1.5 font-bold text-center capitalize border-b-2 transition-colors ${
+                  className={`flex-1 py-2 font-bold text-center capitalize border-b-2 transition-colors cursor-pointer ${
                     drawerTab === tab
-                      ? 'border-blue-600 text-blue-600'
+                      ? 'border-emerald-600 text-emerald-700'
                       : 'border-transparent text-slate-400 hover:text-slate-600'
                   }`}
                 >
@@ -445,7 +448,10 @@ export default function Historico() {
                 </button>
               ))}
             </div>
+          </div>
 
+          {/* Scrollable Content Body with stable height */}
+          <div className="flex-1 overflow-y-auto pr-1.5 space-y-3 pt-1">
             {/* Tab content: Avaliação */}
             {drawerTab === 'avaliacao' && (
               <div className="space-y-3 text-xs">
@@ -577,6 +583,7 @@ export default function Historico() {
                 ))}
               </div>
             )}
+          </div>
           </div>
           </DetailModal>
         )}

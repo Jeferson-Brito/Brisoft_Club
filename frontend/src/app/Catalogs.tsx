@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Building2, Users, MapPin, Briefcase, ShieldCheck, KeyRound, Check, Minus, Star, Zap } from "lucide-react";
+import type { ReactNode } from "react";
 import { api, dateLabel, useData, type Row } from "./state";
 import {
   Heading,
@@ -248,6 +250,14 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
       },
     ],
   };
+  const catalogIcons: Record<string, ReactNode> = {
+    employees: <Users size={20} className="text-[#f5b300]" />,
+    clients: <Building2 size={20} className="text-[#f5b300]" />,
+    posts: <MapPin size={20} className="text-[#f5b300]" />,
+    allocations: <Briefcase size={20} className="text-[#f5b300]" />,
+    users: <ShieldCheck size={20} className="text-[#f5b300]" />,
+    roles: <KeyRound size={20} className="text-[#f5b300]" />,
+  };
   const tabs =
     kind === "clients"
       ? ["clients", "posts"]
@@ -258,6 +268,7 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
     <>
       <Heading
         title={title[current]}
+        icon={catalogIcons[current]}
         description={
           current === "allocations"
             ? "Um vínculo informa em qual empresa e posto o colaborador trabalha. Ao movimentá-lo, o histórico anterior é preservado."
@@ -281,18 +292,54 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
         )}
       </Heading>
       {kind === "users" && (
-        <div className="photo-summary">
-          <div className="photo-stat"><span><strong>{data.users.filter(u => u.status === 'ativo').length}</strong><small>Usuários ativos</small></span></div>
-          <div className="photo-stat"><span><strong>{data.users.filter(u => u.status !== 'ativo').length}</strong><small>Usuários inativos</small></span></div>
-          <div className="photo-stat green"><span><strong>{data.roles.length}</strong><small>Perfis de acesso</small></span></div>
-          <div className="photo-stat"><span><strong>{data.audit.filter(a => a.action === 'login').length}</strong><small>Acessos registrados</small></span></div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">Usuários ativos</p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1">{data.users.filter(u => u.status === 'ativo').length}</h3>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+              <Check size={18} strokeWidth={3} />
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">Usuários inativos</p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1">{data.users.filter(u => u.status !== 'ativo').length}</h3>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center font-bold">
+              <Minus size={18} strokeWidth={3} />
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">Perfis de acesso</p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1">{data.roles.length}</h3>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-[#f5b300] flex items-center justify-center font-bold">
+              <Star size={18} strokeWidth={2.5} />
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">Acessos registrados</p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1">{data.audit.filter(a => a.action === 'login').length}</h3>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#071e4d] flex items-center justify-center font-bold">
+              <Zap size={18} strokeWidth={2.5} />
+            </div>
+          </div>
         </div>
       )}
-      <div className="tabs">
+      <div className="tabs inline-flex p-1 bg-slate-100/90 rounded-2xl border border-slate-200/80 mb-4 gap-1">
         {tabs.map((t) => (
           <button
             key={t}
-            className={current === t ? "active" : ""}
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              current === t
+                ? "bg-[#071e4d] text-white shadow-sm"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+            }`}
             onClick={() => setTab(t as typeof kind)}
           >
             {title[t]}

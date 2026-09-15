@@ -1,4 +1,4 @@
-import { AlertTriangle, Users, Building2, Phone } from 'lucide-react';
+import { AlertTriangle, Clock, Users, Building2, Phone } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { useData } from '../../app/state';
 
@@ -22,6 +22,18 @@ export default function NaoAvaliados() {
 
   return (
     <div className="space-y-4 page-enter">
+      {/* ── Cabeçalho da Página Padrão Corporativo Grupo Combate ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 pb-1">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#071e4d] text-white flex items-center justify-center shadow-xs flex-shrink-0">
+            <Clock size={20} />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 leading-tight">Não Avaliados</h1>
+            <p className="text-xs text-slate-500 font-medium">Acompanhamento e alertas de colaboradores pendentes de avaliação.</p>
+          </div>
+        </div>
+      </div>
       {/* Alert Banner */}
       {alerts.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
@@ -100,7 +112,7 @@ export default function NaoAvaliados() {
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-xs text-left">
                   <thead>
-                    <tr className="bg-slate-50/80 text-slate-500 font-semibold border-b border-slate-100 text-[11px]">
+                    <tr className="bg-[#071e4d] text-white font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
                       <th className="py-2.5 px-3">Colaborador</th>
                       <th className="py-2.5 px-3">Cliente</th>
                       <th className="py-2.5 px-3">Posto</th>

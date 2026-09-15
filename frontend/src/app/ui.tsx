@@ -12,16 +12,40 @@ import {
 } from "lucide-react";
 import { fmt, useData, type Row } from "./state";
 export function Heading({
+  title,
+  description,
+  icon,
   children,
 }: {
   title?: string;
   description?: string;
+  icon?: ReactNode;
   children?: ReactNode;
 }) {
-  if (!children) return null;
   return (
-    <div className="flex justify-end items-center mb-3">
-      <div className="actions">{children}</div>
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 mb-4 border-b border-slate-200">
+      {(title || icon || description) ? (
+        <div className="flex items-center gap-3 min-w-0">
+          {icon && (
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#071e4d] text-[#f5b300] flex items-center justify-center shadow-md shadow-[#071e4d]/20 flex-shrink-0">
+              {icon}
+            </div>
+          )}
+          <div className="min-w-0">
+            {title && (
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight truncate">
+                {title}
+              </h1>
+            )}
+            {description && (
+              <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5 line-clamp-2">
+                {description}
+              </p>
+            )}
+          </div>
+        </div>
+      ) : <div />}
+      {children && <div className="flex items-center gap-2 flex-wrap flex-shrink-0">{children}</div>}
     </div>
   );
 }
@@ -516,8 +540,12 @@ export const NewButton = ({
   onClick: () => void;
   label?: string;
 }) => (
-  <button className="btn" onClick={onClick}>
-    <Plus size={17} />
-    {label}
+  <button
+    type="button"
+    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#071e4d] hover:bg-[#0c2e75] text-white text-xs sm:text-sm font-extrabold shadow-sm transition-all duration-150 cursor-pointer active:scale-95"
+    onClick={onClick}
+  >
+    <Plus size={16} strokeWidth={2.5} className="text-[#f5b300]" />
+    <span>{label}</span>
   </button>
 );

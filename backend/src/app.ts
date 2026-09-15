@@ -585,21 +585,32 @@ export function createApp(store: Store) {
   }
   async function tick(db: TenantStore) {
     for (const season of await db.all("seasons")) {
-      if (season.status === "ativa" && season.rules?.autoClose) {
+      if (season.status === "ativa") {
         const cycles = (await db.all("cycles")).filter(
           (c) => c.seasonId === season.id,
         );
-        for (const c of cycles)
-          if (c.status === "ativo" && c.deadline < today()) {
-            await replicateMissingEvaluations(db, c.id);
-            await db.put("cycles", { ...c, status: "encerrado" });
+        // Replicação automática: sempre que ambos os prazos de avaliação passaram, replicar notas ausentes
+        for (const c of cycles) {
+          if (c.status === "ativo") {
+            const clientExpired = today() > (c.clientDeadline ?? c.deadline);
+            const supervisorExpired = today() > (c.supervisorDeadline ?? c.deadline);
+            if (clientExpired && supervisorExpired) {
+              await replicateMissingEvaluations(db, c.id);
+            }
           }
-        if (
-          season.end < today() &&
-          cycles.every((c) => c.deadline < today() && c.status !== "planejado")
-        )
-          await db.put("seasons", { ...season, status: "encerrada" });
-      }
+        }
+        if (season.rules?.autoClose) {
+          for (const c of cycles)
+            if (c.status === "ativo" && c.deadline < today()) {
+              await db.put("cycles", { ...c, status: "encerrado" });
+            }
+          if (
+            season.end < today() &&
+            cycles.every((c) => c.deadline < today() && c.status !== "planejado")
+          )
+            await db.put("seasons", { ...season, status: "encerrada" });
+        }
+      } // fim if (season.status === "ativa")
       const s = await must(db, "seasons", season.id);
       if (
         s.status === "encerrada" &&
@@ -1377,9 +1388,9 @@ export function createApp(store: Store) {
             await db.put("seasons", {
               ...s,
               rules: {
-                ...s.rules,
-                allowReevaluate: rules.allowReevaluate,
+                ...rules,
               },
+              ruleVersion: settings.version + 1,
               updatedAt: now(),
             });
           }
@@ -1554,7 +1565,7 @@ export function createApp(store: Store) {
             .default([]),
           compliment: z.string().trim().max(500).default(""),
           status: z
-            .enum(["rascunho", "enviada", "impossivel"])
+            .enum(["rascunho", "enviada", "impossivel", "pulado"])
             .default("enviada"),
           reason: z.string().trim().max(500).default(""),
         })
@@ -1592,19 +1603,35 @@ export function createApp(store: Store) {
           cycle.status === "ativo" && season.status === "ativa",
           "Ciclo encerrado ou ainda não iniciado",
         );
+        // Verifica início e prazo por papel do avaliador
+        const evaluatorProfile = normalizedName(role.name);
+        const isClientRole = evaluatorProfile === "cliente";
+        const isSupervisorRole = ["supervisor", "fiscal"].includes(evaluatorProfile);
+
+        const effectiveStart = isClientRole && cycle.clientStart
+          ? cycle.clientStart
+          : isSupervisorRole && cycle.supervisorStart
+            ? cycle.supervisorStart
+            : cycle.start;
         assert(
-          today() >= cycle.start,
-          "O período de avaliação ainda não começou",
+          today() >= effectiveStart,
+          "O período de avaliação ainda não começou para o seu perfil",
         );
+
+        const effectiveDeadline = isClientRole && cycle.clientDeadline
+          ? cycle.clientDeadline
+          : isSupervisorRole && cycle.supervisorDeadline
+            ? cycle.supervisorDeadline
+            : cycle.deadline;
         assert(
-          season.rules.allowLate || today() <= cycle.deadline,
-          "Prazo de avaliação encerrado",
+          season.rules.allowLate || today() <= effectiveDeadline,
+          "Prazo de avaliação encerrado para o seu perfil",
         );
         const existing = existingRows[0]
           ? JSON.parse(existingRows[0].data)
           : undefined;
         assert(
-          !existing || existing.status === "rascunho",
+          !existing || existing.status === "rascunho" || existing.status === "pulado",
           "Avaliação já registrada para este colaborador e avaliador",
           409,
         );
@@ -1626,6 +1653,11 @@ export function createApp(store: Store) {
           assert(
             season.rules.allowUnable && input.reason.length >= 3,
             "Informe por que não consegue avaliar",
+          );
+        if (input.status === "pulado")
+          assert(
+            input.reason && input.reason.trim().length >= 3,
+            "Informe o motivo para pular esta avaliação",
           );
         const result = await db.put("evaluations", {
           ...existing,
