@@ -225,18 +225,7 @@ export default function Concluidas() {
 
   return (
     <div className="space-y-3.5 page-enter max-w-7xl mx-auto pb-10">
-      {/* ── Cabeçalho da Página Padrão Corporativo Grupo Combate ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 pb-1">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#071e4d] text-white flex items-center justify-center shadow-xs flex-shrink-0">
-            <CheckCircle2 size={20} />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 leading-tight">Avaliações Concluídas</h1>
-            <p className="text-xs text-slate-500 font-medium">Histórico completo de avaliações enviadas e finalizadas.</p>
-          </div>
-        </div>
-      </div>
+      
 
       {/* ── Barra Superior Limpa: Busca + Filtros + Exportação (se admin/analista) ── */}
       <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs space-y-3">
@@ -254,7 +243,7 @@ export default function Concluidas() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{ paddingLeft: '44px', paddingRight: '36px' }}
-              className="w-full h-11 text-xs sm:text-[13px] bg-slate-50/90 hover:bg-slate-50 focus:bg-white border border-slate-200/90 focus:border-emerald-500 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:ring-3 focus:ring-emerald-500/15 transition-all font-medium shadow-2xs"
+              className="w-full h-11 pl-11 pr-4 text-xs sm:text-[13px] bg-slate-50/90 hover:bg-slate-50 focus:bg-white border border-slate-200/90 focus:border-emerald-500 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:ring-3 focus:ring-emerald-500/15 transition-all font-medium shadow-2xs"
             />
             {searchTerm && (
               <button
@@ -508,7 +497,7 @@ export default function Concluidas() {
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left">
                 <thead>
-                  <tr className="bg-[#071e4d] text-white font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
+                  <tr className="bg-slate-50/90 text-slate-500 border-b border-slate-200 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
                     <th className="p-2.5 w-8">
                       <input
                         type="checkbox"

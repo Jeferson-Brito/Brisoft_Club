@@ -135,6 +135,10 @@ export function usePhotoData() {
     const isSupervisor = ["supervisor", "fiscal"].includes(roleProfile);
     const todayStr = new Date().toISOString().slice(0, 10);
 
+    const sortedCycles = [...cycles].sort((a, b) =>
+      String(a.start).localeCompare(String(b.start)),
+    );
+
     const pending: any[] = data.participants
       .filter((participant) => {
         const participantCycle = data.cycles.find(
@@ -228,47 +232,141 @@ export function usePhotoData() {
         };
       });
 
-    const toEvaluate: any[] = [...pending]
-      .sort((a, b) => {
-        // Colaboradores prontos para avaliar (dentro da janela e não pulados) primeiro
-        const scoreA = a.windowOpen ? (a.isSkipped ? 1 : 0) : 2;
-        const scoreB = b.windowOpen ? (b.isSkipped ? 1 : 0) : 2;
-        if (scoreA !== scoreB) return scoreA - scoreB;
-        return String(a.employee).localeCompare(String(b.employee));
+    // Universo completo de colaboradores a avaliar para o avaliador no ciclo atual/ativo
+    const toEvaluate: any[] = data.participants
+      .filter((participant) => {
+        const participantCycle = data.cycles.find(
+          (item) => item.id === participant.cycleId,
+        );
+        // Exibir participantes elegíveis do ciclo ativo (ou mais recente)
+        const isCurrentCycle = cycle ? participant.cycleId === cycle.id : participantCycle?.status === "ativo";
+        return participant.eligible !== false && isCurrentCycle;
       })
-      .map((item) => {
-        const emp = data.employees.find((e) => e.id === item.employeeId);
+      .map((participant) => {
+        const participantCycle = data.cycles.find(
+          (item) => item.id === participant.cycleId,
+        );
+        const emp = data.employees.find((e) => e.id === participant.employeeId);
+
+        // Verificar se este avaliador já concluiu a avaliação
+        const submittedEval = data.evaluations.find(
+          (item) =>
+            item.participantId === participant.id &&
+            item.evaluatorId === data.user.id &&
+            !item.replicated &&
+            item.status === "enviada",
+        );
+        const isEvaluated = Boolean(submittedEval);
+
+        const skippedEval = data.evaluations.find(
+          (item) =>
+            item.participantId === participant.id &&
+            item.evaluatorId === data.user.id &&
+            item.status === "pulado",
+        );
+
+        // Períodos específicos
+        const windowStart = isClient && participantCycle?.clientStart
+          ? participantCycle.clientStart
+          : isSupervisor && participantCycle?.supervisorStart
+            ? participantCycle.supervisorStart
+            : participantCycle?.start || "";
+
+        const windowEnd = isClient && participantCycle?.clientDeadline
+          ? participantCycle.clientDeadline
+          : isSupervisor && participantCycle?.supervisorDeadline
+            ? participantCycle.supervisorDeadline
+            : participantCycle?.deadline || "";
+
+        const notStartedYet = Boolean(windowStart && todayStr < windowStart);
+        const isExpired = Boolean(windowEnd && todayStr > windowEnd);
+        const windowOpen = !notStartedYet && !isExpired;
+        const windowStatus = notStartedYet ? "upcoming" : isExpired ? "expired" : "available";
+
+        // Próximo ciclo para informar data em caso de já avaliado
+        const currentCycleIdx = sortedCycles.findIndex((c) => c.id === participant.cycleId);
+        const nextCycle = currentCycleIdx >= 0 && currentCycleIdx < sortedCycles.length - 1
+          ? sortedCycles[currentCycleIdx + 1]
+          : null;
+
+        const nextCycleStartDate = nextCycle
+          ? (isClient && nextCycle.clientStart ? nextCycle.clientStart : isSupervisor && nextCycle.supervisorStart ? nextCycle.supervisorStart : nextCycle.start)
+          : "";
+        const nextCycleStartLabel = nextCycleStartDate ? dateLabel(nextCycleStartDate) : "";
+
+        // Mensagem de período
+        let availabilityMessage = "";
+        if (isEvaluated) {
+          availabilityMessage = nextCycleStartLabel
+            ? `Avaliação concluída neste ciclo. Próxima avaliação disponível a partir de ${nextCycleStartLabel} (próximo ciclo).`
+            : `Avaliação concluída neste ciclo. Temporada encerrada ou sem novo ciclo cadastrado.`;
+        } else if (notStartedYet) {
+          availabilityMessage = `Você poderá avaliar este colaborador a partir de ${dateLabel(windowStart)}.`;
+        } else if (isExpired) {
+          availabilityMessage = `O período de avaliação para o seu perfil encerrou em ${dateLabel(windowEnd)}.`;
+        } else {
+          availabilityMessage = `Período de avaliação aberto até ${dateLabel(windowEnd)}.`;
+        }
+
+        const canEvaluate = windowOpen && !isEvaluated;
+        const isGray = !canEvaluate; // Fica em cinza se fora do período ou já avaliado
+
         return {
-          id: item.id,
-          participantId: item.id,
-          cycleId: item.cycleId,
-          name: item.employee,
-          photo: item.photo,
-          role: item.role,
-          client: item.client,
-          post: item.post,
-          registration: item.registration,
+          id: participant.id,
+          participantId: participant.id,
+          cycleId: participant.cycleId,
+          cycleName: participantCycle?.name || "Ciclo",
+          name: participant.snapshot?.name || emp?.name || "—",
+          photo: participant.snapshot?.photo || emp?.photo || "",
+          role: participant.snapshot?.role || emp?.role || "Colaborador",
+          client: participant.snapshot?.client || "—",
+          post: participant.snapshot?.post || "—",
+          registration: participant.snapshot?.registration || emp?.registration || "—",
           supervisor:
-            usersById.get(item.snapshot?.supervisorId)?.name || "—",
-          score: 0,
+            usersById.get(participant.snapshot?.supervisorId)?.name || "—",
+          score: Number(submittedEval?.score || 0),
           badge: null,
           status: "ativo",
-          evaluations: 0,
-          avgScore: 0,
+          evaluations: isEvaluated ? 1 : 0,
+          avgScore: Number(submittedEval?.score || 0),
           presence: 0,
           admissionDate: emp?.admissionDate || "",
-          allocationStart: item.snapshot?.allocationStart || "",
+          allocationStart: participant.snapshot?.allocationStart || "",
           gender: emp?.gender || "",
           cpf: emp?.cpf || "",
-          windowOpen: item.windowOpen,
-          windowStatus: item.windowStatus,
-          windowStart: item.windowStart,
-          windowEnd: item.windowEnd,
-          windowStartLabel: item.windowStartLabel,
-          windowEndLabel: item.windowEndLabel,
-          isSkipped: item.isSkipped,
-          skipReason: item.skipReason,
+          windowOpen,
+          windowStatus,
+          windowStart,
+          windowEnd,
+          windowStartLabel: windowStart ? dateLabel(windowStart) : "",
+          windowEndLabel: windowEnd ? dateLabel(windowEnd) : "",
+          isSkipped: Boolean(skippedEval),
+          skipReason: skippedEval?.reason || "",
+          isEvaluated,
+          canEvaluate,
+          isGray,
+          availabilityMessage,
+          nextCycleStartLabel,
+          submittedEvalId: submittedEval?.id,
         };
+      })
+      .sort((a, b) => {
+        // Ordenação inteligente:
+        // 1º Colaboradores aptos a avaliar agora
+        // 2º Colaboradores pulados
+        // 3º Colaboradores aguardando período (em cinza)
+        // 4º Colaboradores já avaliados (em cinza)
+        const getPriority = (item: any) => {
+          if (item.canEvaluate && !item.isSkipped) return 1;
+          if (item.canEvaluate && item.isSkipped) return 2;
+          if (!item.isEvaluated && !item.windowOpen) return 3;
+          if (item.isEvaluated) return 4;
+          return 5;
+        };
+        const pA = getPriority(a);
+        const pB = getPriority(b);
+        if (pA !== pB) return pA - pB;
+        return String(a.name).localeCompare(String(b.name));
       });
 
     return {

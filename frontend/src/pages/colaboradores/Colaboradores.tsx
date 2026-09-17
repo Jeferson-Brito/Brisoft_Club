@@ -1,22 +1,20 @@
 import { useState, useEffect } from 'react';
 import {
-  Users, CheckCircle2, Clock, Trophy, Filter,
+  Search, Users, Trophy, Filter,
   Download, Plus, X, Star, Target, BarChart3, Eye,
   ShieldAlert, Paperclip, MoreVertical, Pencil,
 } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { usePhotoData } from '../../app/photo-data';
 import { api } from '../../app/state';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { Employee } from '../../types';
-import { EmployeeEditor } from '../../components/employees/EmployeeEditor';
 import { EmployeeActionEditor } from '../../components/employees/EmployeeActionEditor';
 import { DetailModal } from '../../app/ui';
 
 export default function Colaboradores() {
+  const navigate = useNavigate();
   const { employees, evaluations, data, refresh, notify } = usePhotoData();
-  const [editing, setEditing] = useState<any>();
-  const [creating, setCreating] = useState(false);
   const [creatingAction, setCreatingAction] = useState(false);
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
   const [drawerTab, setDrawerTab] = useState<'resumo' | 'avaliacoes' | 'historico' | 'ocorrencias'>('resumo');
@@ -26,6 +24,7 @@ export default function Colaboradores() {
   const [selectedRole, setSelectedRole] = useState('Todas');
   const [selectedStatus, setSelectedStatus] = useState('Todos');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   useEffect(() => {
     if (!activeMenuId) return;
@@ -59,9 +58,7 @@ export default function Colaboradores() {
     setSelectedRole('Todas');
     setSelectedStatus('Todos');
   };
-  const evaluatedCount = employees.filter(item => item.score > 0).length;
-  const evaluatedPct = employees.length ? Math.round(evaluatedCount / employees.length * 100) : 0;
-  const clientOptions = [...new Set(employees.map(item => item.client).filter(Boolean))];
+      const clientOptions = [...new Set(employees.map(item => item.client).filter(Boolean))];
   const postOptions = [...new Set(employees.map(item => item.post).filter(Boolean))];
   const roleOptions = [...new Set(employees.map(item => item.role).filter(Boolean))];
   const selectedEmployeeEvaluations = evaluations
@@ -76,7 +73,6 @@ export default function Colaboradores() {
     try {
       await api(`/records/employees/${employee.id}/delete`, { confirm: true });
       setSelectedEmp(null);
-      setEditing(undefined);
       await refresh();
       notify("Colaborador excluído.");
     } catch (error) {
@@ -86,143 +82,95 @@ export default function Colaboradores() {
 
   return (
     <div className="space-y-3.5 page-enter">
-      {/* ── Cabeçalho da Página Conforme Imagem de Referência ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 pb-1">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#071e4d] text-white flex items-center justify-center shadow-xs flex-shrink-0">
-            <Users size={20} />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 leading-tight">Colaboradores</h1>
-            <p className="text-xs text-slate-500 font-medium">Gerencie os colaboradores da sua equipe.</p>
-          </div>
-        </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="flex items-center gap-2 bg-[#071e4d] hover:bg-[#0c2e75] active:bg-[#06183d] text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition-all shadow-xs cursor-pointer self-start sm:self-auto"
-        >
-          <Plus size={16} />
-          <span>Novo colaborador</span>
-        </button>
-      </div>
-
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-xs flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
-            <Users size={18} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-lg font-bold text-slate-800 leading-none">{employees.length}</div>
-            <div className="text-xs font-medium text-slate-500 mt-0.5 truncate">Colaboradores</div>
-            <div className="text-[10px] text-slate-400 font-medium truncate">em todos os clientes</div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-xs flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
-            <CheckCircle2 size={18} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-lg font-bold text-slate-800 leading-none">{evaluatedCount}</div>
-            <div className="text-xs font-medium text-slate-500 mt-0.5 truncate">Ativados</div>
-            <div className="text-[10px] text-slate-400 mt-0.5 mb-1">{evaluatedPct}% do total</div>
-            <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${evaluatedPct}%` }} />
+      {/* ── Barra Superior Padronizada: Busca + Filtros + Ação ── */}
+      <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-1 max-w-lg">
+            <div className="relative flex-1">
+              <Search
+                size={16}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              />
+              <input
+                type="text"
+                placeholder="Buscar por colaborador ou matrícula..."
+                value={searchName}
+                onChange={(e) => setSearchName(e.target.value)}
+                style={{ paddingLeft: "44px" }}
+                className="w-full pl-11 pr-3 py-2 text-xs font-medium border border-slate-200 rounded-xl bg-slate-50/50 hover:bg-white focus:bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all search-input"
+              />
             </div>
+            <button
+              type="button"
+              onClick={() => setFilterOpen((prev) => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                filterOpen || selectedClient !== 'Todos' || selectedPost !== 'Todos' || selectedRole !== 'Todas' || selectedStatus !== 'Todos'
+                  ? 'bg-blue-50 border-blue-200 text-blue-700'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Filter size={14} />
+              <span>Filtros</span>
+              {(selectedClient !== 'Todos' || selectedPost !== 'Todos' || selectedRole !== 'Todas' || selectedStatus !== 'Todos') && (
+                <span className="w-2 h-2 rounded-full bg-blue-600" />
+              )}
+            </button>
+            {(searchName || selectedClient !== 'Todos' || selectedPost !== 'Todos' || selectedRole !== 'Todas' || selectedStatus !== 'Todos') && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="text-xs text-slate-400 hover:text-slate-600 font-medium cursor-pointer"
+              >
+                Limpar
+              </button>
+            )}
           </div>
-        </div>
 
-        <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-xs flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
-            <Clock size={18} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-lg font-bold text-slate-800 leading-none">{Math.max(0, employees.length - evaluatedCount)}</div>
-            <div className="text-xs font-medium text-slate-500 mt-0.5 truncate">Pendentes</div>
-            <div className="text-[10px] text-slate-400 mt-0.5 mb-1">{100 - evaluatedPct}% do total</div>
-            <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-              <div className="h-full bg-amber-500 rounded-full" style={{ width: `${100 - evaluatedPct}%` }} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-xs flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0">
-            <Trophy size={18} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-lg font-bold text-slate-800 leading-none">{employees.length ? Math.round(employees.reduce((sum, item) => sum + item.score, 0) / employees.length) : 0}</div>
-            <div className="text-xs font-medium text-slate-500 mt-0.5 truncate">Média de pontos</div>
-            <div className="text-[10px] text-slate-400 font-medium truncate">na temporada selecionada</div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Filters Section ── */}
-      <details className="filter-disclosure bg-white rounded-xl p-3.5 shadow-xs border border-slate-200/80 space-y-2.5">
-        <summary className="flex items-center justify-between cursor-pointer">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-            <Filter size={14} className="text-slate-500" />
-            <span>Filtros</span>
-          </div>
           <button
-            onClick={(event) => { event.preventDefault(); resetFilters(); }}
-            className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors font-medium"
+            type="button"
+            onClick={() => navigate('/colaboradores/novo')}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#071e4d] hover:bg-[#0c2e75] text-white text-xs sm:text-sm font-extrabold shadow-sm transition-all duration-150 cursor-pointer active:scale-95 flex-shrink-0"
           >
-            Limpar filtros
+            <Plus size={16} strokeWidth={2.5} className="text-[#f5b300]" />
+            <span>Novo colaborador</span>
           </button>
-        </summary>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 items-end">
-          <div className="col-span-2 sm:col-span-1 lg:col-span-2">
-            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Nome</label>
-            <input
-              type="text"
-              placeholder="Buscar por nome ou matrícula..."
-              value={searchName}
-              onChange={e => setSearchName(e.target.value)}
-              className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-700 outline-none focus:ring-1 focus:ring-blue-400"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Cliente</label>
-            <select className={selectCls} value={selectedClient} onChange={e => setSelectedClient(e.target.value)}>
-              <option>Todos</option>
-              {clientOptions.map(value => <option key={value}>{value}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Posto</label>
-            <select className={selectCls} value={selectedPost} onChange={e => setSelectedPost(e.target.value)}>
-              <option>Todos</option>
-              {postOptions.map(value => <option key={value}>{value}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Função</label>
-            <select className={selectCls} value={selectedRole} onChange={e => setSelectedRole(e.target.value)}>
-              <option>Todas</option>
-              {roleOptions.map(value => <option key={value}>{value}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Status</label>
-            <select className={selectCls} value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}>
-              <option>Todos</option>
-              <option value="ativo">Ativo</option>
-              <option value="licenca">Licença</option>
-              <option value="inativo">Inativo</option>
-            </select>
-          </div>
         </div>
 
-        <div className="text-right text-[11px] text-slate-400">Os filtros são aplicados automaticamente.</div>
-      </details>
+        {filterOpen && (
+          <div className="pt-3 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-2.5 animate-in fade-in duration-150">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-1">Cliente</label>
+              <select className={selectCls} value={selectedClient} onChange={e => setSelectedClient(e.target.value)}>
+                <option value="Todos">Todos os clientes</option>
+                {clientOptions.map(value => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-1">Posto</label>
+              <select className={selectCls} value={selectedPost} onChange={e => setSelectedPost(e.target.value)}>
+                <option value="Todos">Todos os postos</option>
+                {postOptions.map(value => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-1">Função</label>
+              <select className={selectCls} value={selectedRole} onChange={e => setSelectedRole(e.target.value)}>
+                <option value="Todas">Todas as funções</option>
+                {roleOptions.map(value => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-1">Status</label>
+              <select className={selectCls} value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}>
+                <option value="Todos">Todos os status</option>
+                <option value="ativo">Ativo</option>
+                <option value="licenca">Licença</option>
+                <option value="inativo">Inativo</option>
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── Main Layout: Table + Right Detail Drawer ── */}
       <div className="flex flex-col xl:flex-row gap-3.5 items-start">
@@ -243,7 +191,7 @@ export default function Colaboradores() {
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left">
                 <thead>
-                  <tr className="bg-[#071e4d] text-white font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
+                  <tr className="bg-slate-50/90 text-slate-500 border-b border-slate-200 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
                     <th className="py-3 px-3 text-center w-12">#</th>
                     <th className="py-3 px-3 text-center w-14">Foto</th>
                     <th className="py-3 px-3">Nome</th>
@@ -360,7 +308,7 @@ export default function Colaboradores() {
                                   type="button"
                                   onClick={() => {
                                     setActiveMenuId(null);
-                                    setEditing(emp);
+                                    navigate(`/colaboradores/${emp.id}/editar`);
                                   }}
                                   className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-[#071e4d] transition-colors cursor-pointer text-left"
                                 >
@@ -514,8 +462,8 @@ export default function Colaboradores() {
                 </div>
 
                 {/* Profile Button */}
-                <button type="button" onClick={() => { const target = selectedEmp; setSelectedEmp(null); setEditing(target); }} className="w-full flex items-center justify-center gap-1.5 border border-blue-200 text-blue-600 hover:bg-blue-50 py-2 rounded-lg text-xs font-bold transition-colors">
-                  <Eye size={13} />
+                <button type="button" onClick={() => { navigate(`/colaboradores/${selectedEmp.id}/editar`); setSelectedEmp(null); }} className="w-full flex items-center justify-center gap-1.5 border border-blue-200 text-blue-600 hover:bg-blue-50 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer">
+                  <Pencil size={13} />
                   <span>Editar cadastro e alocação</span>
                 </button>
               </div>
@@ -569,22 +517,6 @@ export default function Colaboradores() {
           </DetailModal>
         )}
       </div>
-      {(creating || editing) && (
-        <EmployeeEditor
-          initial={editing}
-          clients={data.clients}
-          posts={data.posts}
-          users={data.users.filter(user => data.roles.find(role => role.id === user.roleId)?.permissions?.includes('evaluate'))}
-          employeeDomain={data.employeeAccessDomain}
-          canCreateLocation={data.role.permissions.includes('clients')}
-          onClose={() => { setEditing(undefined); setCreating(false); }}
-          onSave={async value => {
-            const saved = await api('/employees/save', value);
-            await refresh();
-            notify(`Colaborador salvo. Login: ${saved.loginEmail}`);
-          }}
-        />
-      )}
       {creatingAction && selectedEmp && (
         <EmployeeActionEditor
           employee={selectedEmp as any}

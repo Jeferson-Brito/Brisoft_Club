@@ -9,7 +9,6 @@ import {
   ArrowUp,
   ArrowDown,
   Sliders,
-  Mail,
   Trophy,
   AlertTriangle,
   FileText,
@@ -45,90 +44,142 @@ export function Settings() {
   };
 
   const tabs = [
-    { key: "scale", name: "Escala de notas", icon: Star },
-    { key: "criteria", name: "Critérios", icon: FileText },
-    { key: "program", name: "Regras e programa", icon: Sliders },
-    { key: "penalties", name: "Penalidades", icon: AlertTriangle },
-    { key: "access", name: "Acesso de colaboradores", icon: Users || Mail },
-    { key: "manual", name: "Manutenção", icon: Calendar },
+    {
+      key: "scale",
+      name: "Escala de Notas",
+      desc: "Valores e pontos",
+      icon: Star,
+    },
+    {
+      key: "criteria",
+      name: "Critérios de Avaliação",
+      desc: "Competências e pesos",
+      icon: FileText,
+    },
+    {
+      key: "program",
+      name: "Regras e Programa",
+      desc: "Cortes e automações",
+      icon: Sliders,
+    },
+    {
+      key: "penalties",
+      name: "Penalidades",
+      desc: "Infrações e descontos",
+      icon: AlertTriangle,
+    },
+    {
+      key: "access",
+      name: "Acesso Colaborador",
+      desc: "Domínio e permissões",
+      icon: Users,
+    },
+    {
+      key: "manual",
+      name: "Manutenção e Dados",
+      desc: "Auditoria e ajustes",
+      icon: Calendar,
+    },
   ];
 
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-5 font-sans">
-      {/* ── Barra de Navegação Fixa (Sticky) Conforme Imagem 1 ── */}
-      <div className="sticky top-[65px] z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 bg-[#f8fafc]/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all">
-        {/* Segmented Tabs Bar */}
-        <div className="flex items-center gap-1.5 p-1 bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-x-auto scrollbar-none">
-          {tabs.map((t) => {
-            const Icon = t.icon;
-            const isActive = tab === t.key;
-            return (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setTab(t.key)}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer ${
+    <div className="w-full max-w-7xl mx-auto font-sans flex flex-col lg:flex-row gap-5 items-start h-auto md:h-full overflow-hidden">
+      {/* Coluna Esquerda: Menu Lateral Fixo com Largura Reduzida */}
+      <div className="w-full lg:w-[215px] shrink-0 bg-white rounded-2xl border border-slate-200/80 p-2 space-y-1 shadow-xs">
+        {tabs.map((t) => {
+          const Icon = t.icon;
+          const isActive = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`w-full p-2 rounded-xl flex items-center gap-2.5 transition-all text-left cursor-pointer group ${
+                isActive
+                  ? "bg-blue-50/90 border border-blue-200/80 shadow-2xs"
+                  : "bg-transparent hover:bg-slate-50 border border-transparent"
+              }`}
+            >
+              <div
+                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
                   isActive
-                    ? "bg-[#071e4d] text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    ? "bg-blue-100 text-blue-600 shadow-2xs"
+                    : "bg-slate-100 text-slate-500 group-hover:text-slate-700"
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? "text-[#f5b300]" : "text-slate-400"}`} />
-                {t.name}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Botão Salvar Regulamento em Azul Marinho com Borda Dourada */}
-        {!['penalties', 'access', 'manual'].includes(tab) && (
-          <button
-            type="button"
-            disabled={isSaving}
-            onClick={handleSaveRules}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#071e4d] hover:bg-[#0c2e75] active:bg-[#06183d] text-white border border-[#f5b300] font-bold text-xs sm:text-sm shadow-xs transition-all disabled:opacity-50 cursor-pointer shrink-0"
-          >
-            <Save className="w-4 h-4 text-[#f5b300]" />
-            {isSaving ? "Salvando..." : "Salvar regulamento"}
-          </button>
-        )}
+                <Icon size={16} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span
+                  className={`text-xs font-bold block leading-tight truncate ${
+                    isActive ? "text-blue-950" : "text-slate-800 group-hover:text-slate-950"
+                  }`}
+                >
+                  {t.name}
+                </span>
+                <span
+                  className={`text-[10px] block mt-0.5 leading-tight truncate ${
+                    isActive ? "text-blue-600 font-medium" : "text-slate-400"
+                  }`}
+                >
+                  {t.desc}
+                </span>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
-      {/* TAB 1: Escala de Notas */}
-      {tab === "scale" && (
-        <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs flex-shrink-0">
-                <FileText size={20} />
-              </div>
-              <div>
-                <h2 className="text-lg font-extrabold text-slate-900 m-0">Escala de Notas e Pontuação</h2>
-                <p className="text-xs sm:text-sm text-slate-500 m-0 mt-0.5 font-medium">
-                  Configure os valores de cada nota e os pontos correspondentes que o colaborador receberá.
-                </p>
-              </div>
-            </div>
+      {/* Coluna Direita: Conteúdo da Aba Ativa com Rolagem Independente */}
+      <div className="flex-1 min-w-0 w-full h-full overflow-y-auto space-y-6 pr-1 pb-10 scrollbar-thin scrollbar-thumb-slate-200">
+          {/* TAB 1: Escala de Notas */}
+          {tab === "scale" && (
+            <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs flex-shrink-0">
+                    <FileText size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-extrabold text-slate-900 m-0">Escala de Notas e Pontuação</h2>
+                    <p className="text-xs sm:text-sm text-slate-500 m-0 mt-0.5 font-medium">
+                      Configure os valores de cada nota e os pontos correspondentes que o colaborador receberá.
+                    </p>
+                  </div>
+                </div>
 
-            <button
-              type="button"
-              disabled={rules.scale.length >= 10}
-              onClick={() =>
-                change("scale", [
-                  ...rules.scale,
-                  {
-                    value: Math.max(...rules.scale.map((s: any) => s.value)) + 1,
-                    label: "Nova nota",
-                    points: 0,
-                  },
-                ])
-              }
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-bold border border-slate-200 transition cursor-pointer"
-            >
-              <Plus className="w-4 h-4 text-slate-600" />
-              Adicionar nota
-            </button>
-          </div>
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <button
+                    type="button"
+                    disabled={rules.scale.length >= 10}
+                    onClick={() =>
+                      change("scale", [
+                        ...rules.scale,
+                        {
+                          value: Math.max(...rules.scale.map((s: any) => s.value)) + 1,
+                          label: "Nova nota",
+                          points: 0,
+                        },
+                      ])
+                    }
+                    className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border border-slate-200 transition flex items-center justify-center cursor-pointer shadow-2xs active:scale-95 disabled:opacity-40"
+                    title="Adicionar nota"
+                    aria-label="Adicionar nota"
+                  >
+                    <Plus className="w-5 h-5 text-slate-700" />
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={handleSaveRules}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#071e4d] hover:bg-[#0c2e75] active:bg-[#06183d] text-white border border-[#f5b300] font-bold text-xs sm:text-sm shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    <Save className="w-4 h-4 text-[#f5b300]" />
+                    {isSaving ? "Salvando..." : "Salvar"}
+                  </button>
+                </div>
+              </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-separate border-spacing-y-2">
@@ -297,26 +348,38 @@ export function Settings() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  change("criteria", [
-                    ...rules.criteria,
-                    {
-                      id: crypto.randomUUID(),
-                      name: "Novo critério",
-                      description: "",
-                      weight: 1,
-                      requiredComment: false,
-                      justifyBelow: 0,
-                    },
-                  ])
-                }
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold transition shadow-xs"
-              >
-                <Plus className="w-4 h-4" />
-                Adicionar critério
-              </button>
+              <div className="flex items-center gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    change("criteria", [
+                      ...rules.criteria,
+                      {
+                        id: crypto.randomUUID(),
+                        name: "Novo critério",
+                        description: "",
+                        weight: 1,
+                        requiredComment: false,
+                        justifyBelow: 0,
+                      },
+                    ])
+                  }
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-bold border border-slate-200 transition cursor-pointer shadow-2xs"
+                >
+                  <Plus className="w-4 h-4 text-slate-600" />
+                  Adicionar critério
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={handleSaveRules}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#071e4d] hover:bg-[#0c2e75] active:bg-[#06183d] text-white border border-[#f5b300] font-bold text-xs sm:text-sm shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <Save className="w-4 h-4 text-[#f5b300]" />
+                  {isSaving ? "Salvando..." : "Salvar"}
+                </button>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -492,11 +555,23 @@ export function Settings() {
         <div className="space-y-6">
           {/* Section A: Regulamento e Medalhas */}
           <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-            <div className="border-b border-slate-100 pb-4">
-              <h2 className="text-lg font-bold text-slate-800 m-0">Regulamento e Cortes de Reconhecimento</h2>
-              <p className="text-xs sm:text-sm text-slate-500 m-0 mt-1">
-                Configure as faixas de pontos necessárias para alcançar cada medalha e os parâmetros do programa.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-800 m-0">Regulamento e Cortes de Reconhecimento</h2>
+                <p className="text-xs sm:text-sm text-slate-500 m-0 mt-1">
+                  Configure as faixas de pontos necessárias para alcançar cada medalha e os parâmetros do programa.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={handleSaveRules}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#071e4d] hover:bg-[#0c2e75] active:bg-[#06183d] text-white border border-[#f5b300] font-bold text-xs sm:text-sm shadow-xs transition-all disabled:opacity-50 cursor-pointer shrink-0"
+              >
+                <Save className="w-4 h-4 text-[#f5b300]" />
+                {isSaving ? "Salvando..." : "Salvar"}
+              </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -880,6 +955,7 @@ export function Settings() {
 
       {/* TAB 6: Manual */}
       {tab === "manual" && <Manual />}
+      </div>
 
       {/* Modal: Editor de Penalidade */}
       {penaltyEditor && (

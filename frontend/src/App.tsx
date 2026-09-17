@@ -18,22 +18,46 @@ import { Auth } from "./app/Auth";
 import { Catalog } from "./app/Catalogs";
 import { Seasons } from "./app/Seasons";
 import { Settings } from "./app/Settings";
+import { WhatsAppSettings } from "./app/WhatsAppSettings";
 import Avaliar from "./pages/avaliacoes/Avaliar";
 import Concluidas from "./pages/avaliacoes/Concluidas";
 import NaoAvaliados from "./pages/avaliacoes/NaoAvaliados";
 import RankingGeral from "./pages/ranking/RankingGeral";
 import Colaboradores from "./pages/colaboradores/Colaboradores";
+import ColaboradorFormPage from "./pages/colaboradores/ColaboradorFormPage";
 import Clientes from "./pages/clientes/Clientes";
+import ClienteFormPage from "./pages/clientes/ClienteFormPage";
+import UsuarioFormPage from "./pages/usuarios/UsuarioFormPage";
+import TemporadaWizardPage from "./pages/temporadas/TemporadaWizardPage";
+import CicloFormPage from "./pages/temporadas/CicloFormPage";
 import { Rankings } from "./app/Insights";
 import { Imports } from "./app/Imports";
 import { Reports } from "./app/Reports";
 import { Editor, Panel } from "./app/ui";
+import { Breadcrumbs } from "./components/layout/Breadcrumbs";
 import "./app/style.css";
 
 
 function Layout({ logout }: { logout: () => void }) {
   const { data, notify, refresh } = useData();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      const saved = localStorage.getItem("sidebar_collapsed");
+      return saved !== null ? saved === "true" : false;
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleSidebar = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  };
   const [mobile, setMobile] = useState(false);
   const [notifications, setNotifications] = useState(false);
   const [password, setPassword] = useState(false);
@@ -63,6 +87,7 @@ function Layout({ logout }: { logout: () => void }) {
     setMobile(false);
     setUserMenuOpen(false);
     setNotifications(false);
+    window.scrollTo(0, 0);
   }, [location.pathname]);
 
   // Click outside to close user dropdown menu and notifications panel
@@ -107,7 +132,7 @@ function Layout({ logout }: { logout: () => void }) {
       <div className={`sidebar-shell ${mobile ? "mobile-open" : ""}`}>
         <Sidebar
           collapsed={collapsed}
-          onToggle={() => setCollapsed(!collapsed)}
+          onToggle={handleToggleSidebar}
           onCloseMobile={() => setMobile(false)}
         />
       </div>
@@ -119,23 +144,17 @@ function Layout({ logout }: { logout: () => void }) {
         />
       )}
       <div className="app-main">
-        <header className="app-topbar hidden md:flex items-center justify-end relative overflow-hidden bg-[#071e4d] border-b border-white/10 px-6">
-          {/* Faixas Diagonais Corporativas Grupo Combate no Topo Conforme Imagem */}
-          <div className="absolute top-0 right-48 h-full w-56 pointer-events-none overflow-hidden hidden md:block z-10 select-none">
-            <svg viewBox="0 0 200 65" className="h-full w-full" preserveAspectRatio="none">
-              <polygon points="85,0 125,0 75,65 35,65" fill="#c8102e" />
-              <polygon points="130,0 160,0 110,65 80,65" fill="#f5b300" />
-            </svg>
-          </div>
+        <header className="app-topbar hidden md:flex items-center justify-between relative bg-white border-b border-slate-200/80 px-6">
+          
 
           <div className="topbar-right ml-auto flex items-center gap-3">
             <div className="relative" ref={notificationsRef}>
                 <button
-                  className="icon-btn notification-button cursor-pointer text-white hover:bg-white/10 p-2 rounded-xl relative transition-colors"
+                  className="icon-btn notification-button cursor-pointer text-slate-500 hover:text-slate-800 hover:bg-slate-100 p-2 rounded-xl relative transition-colors"
                   aria-label="Notificações"
                   onClick={() => setNotifications((prev) => !prev)}
                 >
-                  <Bell size={20} className="text-white" />
+                  <Bell size={20} className="text-slate-600" />
                   <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-rose-600 text-white rounded-full text-[10px] font-black flex items-center justify-center shadow-xs">
                     {pending > 0 ? (pending > 9 ? '9+' : pending) : 2}
                   </span>
@@ -158,19 +177,19 @@ function Layout({ logout }: { logout: () => void }) {
             <div className="relative" ref={userMenuRef}>
               <button
                 type="button"
-                className="user-button flex items-center gap-2.5 cursor-pointer p-1.5 rounded-xl hover:bg-white/10 transition-colors"
+                className="user-button flex items-center gap-2.5 cursor-pointer p-1.5 rounded-xl hover:bg-slate-100 transition-colors"
                 onClick={() => setUserMenuOpen((prev) => !prev)}
                 aria-label="Menu do usuário"
                 aria-expanded={userMenuOpen}
               >
-                <div className="w-8 h-8 rounded-full bg-[#f5b300] text-[#071e4d] font-black text-xs flex items-center justify-center shadow-xs">
+                <div className="w-8 h-8 rounded-full bg-[#0284c7] text-white font-bold text-xs flex items-center justify-center shadow-xs">
                   {data.user.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()}
                 </div>
                 <span className="hidden sm:inline-block text-left leading-tight">
-                  <strong className="block text-xs font-bold text-white">{data.user.name}</strong>
-                  <small className="block text-[10px] text-slate-300 font-medium">{data.role.name}</small>
+                  <strong className="block text-xs font-bold text-slate-800">{data.user.name}</strong>
+                  <small className="block text-[10px] text-slate-400 font-medium">{data.role.name}</small>
                 </span>
-                <ChevronDown size={14} className={`text-slate-300 transition-transform hidden sm:block ${userMenuOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown size={14} className={`text-slate-400 transition-transform hidden sm:block ${userMenuOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {userMenuOpen && (
@@ -439,8 +458,24 @@ function Layout({ logout }: { logout: () => void }) {
             </svg>
           </div>
         </header>
-        <main className="page-content bg-white md:rounded-tl-[28px] shadow-sm min-h-[calc(100vh-65px)] p-4 sm:p-6 pb-20 md:pb-6" key={location.pathname}>
-          <Outlet />
+        <main
+          className={`page-content bg-[#f8fafc] p-4 sm:p-6 pb-20 md:pb-6 flex flex-col ${
+            location.pathname.startsWith("/configuracoes") || location.pathname.startsWith("/whatsapp")
+              ? "md:h-[calc(100vh-65px)] md:overflow-hidden"
+              : "min-h-[calc(100vh-65px)]"
+          }`}
+          key={location.pathname}
+        >
+          <Breadcrumbs />
+          <div
+            className={
+              location.pathname.startsWith("/configuracoes") || location.pathname.startsWith("/whatsapp")
+                ? "flex-1 w-full min-h-0"
+                : "w-full"
+            }
+          >
+            <Outlet />
+          </div>
         </main>
         
 
@@ -577,11 +612,6 @@ function Guard({
 }
 function StartPage() {
   const { data } = useData();
-  const profile = String(data.role.name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  if (profile === "colaborador")
-    return <Navigate to="/ranking/geral" replace />;
-  if (profile !== "administrador" && data.role.permissions.includes("evaluate"))
-    return <Navigate to="/avaliacoes/avaliar" replace />;
   if (data.role.permissions.includes("ranking"))
     return <Navigate to="/ranking/geral" replace />;
   if (data.role.permissions.includes("evaluate"))
@@ -697,10 +727,38 @@ export default function App() {
               )}
             />
             <Route
+              path="colaboradores/novo"
+              element={guard(
+                "employees",
+                <ColaboradorFormPage />,
+              )}
+            />
+            <Route
+              path="colaboradores/:id/editar"
+              element={guard(
+                "employees",
+                <ColaboradorFormPage />,
+              )}
+            />
+            <Route
               path="clientes"
               element={guard(
                 "clients",
                 <Clientes />,
+              )}
+            />
+            <Route
+              path="clientes/novo"
+              element={guard(
+                "clients",
+                <ClienteFormPage />,
+              )}
+            />
+            <Route
+              path="clientes/:id/editar"
+              element={guard(
+                "clients",
+                <ClienteFormPage />,
               )}
             />
             <Route path="colaboradores/gestao" element={guard("employees", <Catalog key="employees-admin" kind="employees" />)} />
@@ -709,13 +767,41 @@ export default function App() {
               path="usuarios"
               element={guard("users", <Catalog key="users" kind="users" />)}
             />
+            <Route
+              path="usuarios/novo"
+              element={guard("users", <UsuarioFormPage />)}
+            />
+            <Route
+              path="usuarios/:id/editar"
+              element={guard("users", <UsuarioFormPage />)}
+            />
             <Route path="temporadas" element={guard("seasons", <Seasons />)} />
+            <Route
+              path="temporadas/novo"
+              element={guard("seasons", <TemporadaWizardPage />)}
+            />
+            <Route
+              path="temporadas/:id/editar"
+              element={guard("seasons", <TemporadaWizardPage />)}
+            />
+            <Route
+              path="temporadas/ciclos/novo"
+              element={guard("seasons", <CicloFormPage />)}
+            />
+            <Route
+              path="temporadas/ciclos/:id/editar"
+              element={guard("seasons", <CicloFormPage />)}
+            />
             <Route
               path="conquistas"
               element={guard("achievements", <Rankings mode="achievements" />)}
             />
             <Route path="importacoes" element={guard("imports", <Imports />)} />
             <Route path="relatorios" element={guard("reports", <Reports />)} />
+            <Route
+              path="whatsapp"
+              element={guard("settings", <WhatsAppSettings />)}
+            />
             <Route
               path="configuracoes"
               element={guard("settings", <Settings />)}

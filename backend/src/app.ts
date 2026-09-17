@@ -29,6 +29,15 @@ import {
   normalizeCpf,
   validCpf,
 } from "./domain.ts";
+import { whatsappService } from "./whatsapp/baileys.ts";
+import {
+  getPendingEvaluationsSummary,
+  sendPendingReminders,
+  sendCycleStartedAlerts,
+  sendCycleClosedAlerts,
+  checkWhatsAppAutomations,
+  defaultWhatsAppConfig,
+} from "./whatsapp/notifications.ts";
 
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 export function passwordHash(password: string) {
@@ -619,6 +628,7 @@ export function createApp(store: Store) {
       )
         await publish(db, "sistema", s);
     }
+    await checkWhatsAppAutomations(db).catch(console.error);
   }
   const lastTickByTenant = new Map<string, number>();
   function scheduleTick(db: TenantStore) {
@@ -1384,7 +1394,7 @@ export function createApp(store: Store) {
         });
         const seasons = await db.all("seasons");
         for (const s of seasons) {
-          if (s.status === "ativa" || s.status === "planejada") {
+          if (s.status === "planejada") {
             await db.put("seasons", {
               ...s,
               rules: {
@@ -1414,6 +1424,150 @@ export function createApp(store: Store) {
       await db.put("settings", { ...settings, employeeEmailDomain: domain, updatedAt: now() });
       await audit(db, user.id, "alterar_dominio_colaboradores", settings.id, { domain });
       res.json({ domain });
+    }),
+  );
+  app.get(
+    "/api/whatsapp/status",
+    route(async (req, res) => {
+      await context(req, "settings");
+      res.json(whatsappService.getStatus());
+    }),
+  );
+  app.post(
+    "/api/whatsapp/connect",
+    route(async (req, res) => {
+      await context(req, "settings");
+      await whatsappService.initSession();
+      res.json(whatsappService.getStatus());
+    }),
+  );
+  app.post(
+    "/api/whatsapp/disconnect",
+    route(async (req, res) => {
+      await context(req, "settings");
+      await whatsappService.disconnect();
+      res.json(whatsappService.getStatus());
+    }),
+  );
+  app.post(
+    "/api/whatsapp/test",
+    route(async (req, res) => {
+      await context(req, "settings");
+      const parsed = z
+        .object({
+          phone: z.string().trim().min(8),
+          message: z.string().trim().max(1000).optional(),
+        })
+        .parse(req.body);
+      const msg =
+        parsed.message ||
+        "Olá! Esta é uma mensagem de teste enviada pelo *Clube de Talentos (Grupo Combate)* via WhatsApp Bot.";
+      const result = await whatsappService.sendMessage(
+        parsed.phone,
+        msg,
+        "Administrador",
+        "teste",
+      );
+      res.json(result);
+    }),
+  );
+  app.get(
+    "/api/whatsapp/pending-summary",
+    route(async (req, res) => {
+      const { db } = await context(req, "settings");
+      const cycleId = req.query.cycleId as string | undefined;
+      const summary = await getPendingEvaluationsSummary(db, cycleId);
+      res.json(summary);
+    }),
+  );
+  app.post(
+    "/api/whatsapp/send-reminders",
+    route(async (req, res) => {
+      const { db } = await context(req, "settings");
+      const parsed = z
+        .object({
+          cycleId: z.string().optional(),
+          portalUrl: z.string().optional(),
+        })
+        .parse(req.body || {});
+      const result = await sendPendingReminders(
+        db,
+        parsed.cycleId,
+        parsed.portalUrl,
+      );
+      res.json(result);
+    }),
+  );
+  app.post(
+    "/api/whatsapp/send-cycle-alert",
+    route(async (req, res) => {
+      const { db } = await context(req, "settings");
+      const parsed = z
+        .object({
+          cycleId: z.string(),
+          alertType: z.enum(["started", "closed"]),
+          portalUrl: z.string().optional(),
+        })
+        .parse(req.body);
+      let result;
+      if (parsed.alertType === "started") {
+        result = await sendCycleStartedAlerts(
+          db,
+          parsed.cycleId,
+          parsed.portalUrl,
+        );
+      } else {
+        result = await sendCycleClosedAlerts(db, parsed.cycleId);
+      }
+      res.json(result);
+    }),
+  );
+  app.get(
+    "/api/whatsapp/logs",
+    route(async (req, res) => {
+      await context(req, "settings");
+      res.json({ logs: whatsappService.getLogs() });
+    }),
+  );
+  app.get(
+    "/api/whatsapp/config",
+    route(async (req, res) => {
+      const { db } = await context(req, "settings");
+      const settings = (await db.all("settings"))[0];
+      const config = {
+        ...defaultWhatsAppConfig,
+        ...(settings?.whatsappConfig || {}),
+      };
+      res.json(config);
+    }),
+  );
+  app.post(
+    "/api/whatsapp/config",
+    route(async (req, res) => {
+      const { db, user } = await context(req, "settings");
+      const parsed = z
+        .object({
+          enabled: z.boolean().default(true),
+          autoCycleStart: z.boolean().default(true),
+          autoReminders: z.boolean().default(true),
+          reminderDaysBefore: z.array(z.number()).default([5, 3, 1]),
+          reminderTime: z.string().default("09:00"),
+          businessDaysOnly: z.boolean().default(true),
+          autoCycleEnd: z.boolean().default(true),
+          notifySupervisors: z.boolean().default(false),
+          portalUrl: z.string().default("http://localhost:5173"),
+        })
+        .parse(req.body);
+
+      const settings = (await db.all("settings"))[0];
+      await db.put("settings", {
+        ...settings,
+        whatsappConfig: parsed,
+        updatedAt: now(),
+      });
+      whatsappService.autoNotifications = parsed.enabled;
+      await audit(db, user.id, "alterar_config_whatsapp", settings.id, parsed);
+      res.json(parsed);
     }),
   );
   app.post(

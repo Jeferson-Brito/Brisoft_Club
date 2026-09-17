@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Building2, Users, MapPin, Briefcase, ShieldCheck, KeyRound, Check, Minus, Star, Zap } from "lucide-react";
-import type { ReactNode } from "react";
+import { MapPin, Briefcase, KeyRound, Building2, Users } from "lucide-react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { api, dateLabel, useData, type Row } from "./state";
 import {
-  Heading,
   DataTable,
   Editor,
   NewButton,
@@ -21,6 +19,7 @@ const active = [
   { value: "inativo", label: "Inativo" },
 ];
 export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
+  const navigate = useNavigate();
   const { data, refresh, notify } = useData();
   const [params] = useSearchParams();
   const requestedTab = params.get("tab");
@@ -49,7 +48,7 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
       { key: "segment", label: "Segmento", required: false },
       { key: "responsible", label: "Responsável", required: false },
       { key: "email", label: "E-mail", type: "email", required: false },
-      { key: "phone", label: "Telefone", required: false },
+      { key: "phone", label: "Telefone / WhatsApp", required: false, hint: "Número com DDD (ex: 11999998888) para recebimento de alertas do bot." },
       { key: "postIds", label: "Postos desta empresa", type: "multi", options: options(data.posts), required: false, hint: "Escolha os postos globais que existem nesta empresa." },
       { key: "status", label: "Status", options: active },
     ],
@@ -158,8 +157,8 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
     clients: "Clientes",
     posts: "Postos",
     allocations: "Vínculos dos colaboradores",
-    users: "Usuários e Acessos",
-    roles: "Perfis e permissões",
+    users: "Usuários",
+    roles: "Perfis",
   };
   const current = tab as string;
   const baseRows = (data as any)[current] as Row[];
@@ -185,6 +184,21 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
       { key: "cnpj", label: "CNPJ" },
       { key: "segment", label: "Segmento" },
       { key: "responsible", label: "Responsável" },
+      {
+        key: "phone",
+        label: "Telefone / WhatsApp",
+        render: (r) =>
+          r.phone ? (
+            <span className="inline-flex items-center gap-1.5 font-semibold text-slate-700">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              {r.phone}
+            </span>
+          ) : (
+            <span className="text-xs text-amber-600/90 font-medium italic">
+              Não informado
+            </span>
+          ),
+      },
       {
         key: "status",
         label: "Status",
@@ -230,6 +244,11 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
       { key: "email", label: "E-mail" },
       { key: "profile", label: "Perfil" },
       {
+        key: "phone",
+        label: "WhatsApp",
+        render: (r) => r.phone || <span className="text-slate-400 italic text-xs">-</span>,
+      },
+      {
         key: "status",
         label: "Status",
         render: (r) => <Status value={r.status} />,
@@ -250,120 +269,123 @@ export function Catalog({ kind }: { kind: "employees" | "clients" | "users" }) {
       },
     ],
   };
-  const catalogIcons: Record<string, ReactNode> = {
-    employees: <Users size={20} className="text-[#f5b300]" />,
-    clients: <Building2 size={20} className="text-[#f5b300]" />,
-    posts: <MapPin size={20} className="text-[#f5b300]" />,
-    allocations: <Briefcase size={20} className="text-[#f5b300]" />,
-    users: <ShieldCheck size={20} className="text-[#f5b300]" />,
-    roles: <KeyRound size={20} className="text-[#f5b300]" />,
-  };
-  const tabs =
+    const tabs =
     kind === "clients"
       ? ["clients", "posts"]
       : kind === "employees"
         ? ["employees", "allocations"]
         : ["users", "roles"];
+  const catalogIcons: Record<string, React.ReactNode> = {
+    employees: <Building2 size={15} className="text-blue-600" />,
+    clients: <Building2 size={15} className="text-blue-600" />,
+    posts: <MapPin size={15} className="text-blue-600" />,
+    allocations: <Briefcase size={15} className="text-blue-600" />,
+    users: <Users size={15} className="text-blue-600" />,
+    roles: <KeyRound size={15} className="text-blue-600" />,
+  };
+
+  const createButtonLabel =
+    current === "allocations"
+      ? "Nova movimentação"
+      : current === "posts"
+      ? "Novo posto"
+      : current === "users"
+      ? "Novo usuário"
+      : current === "roles"
+      ? "Novo perfil"
+      : "Novo registro";
+
   return (
     <>
-      <Heading
-        title={title[current]}
-        icon={catalogIcons[current]}
-        description={
-          current === "allocations"
-            ? "Um vínculo informa em qual empresa e posto o colaborador trabalha. Ao movimentá-lo, o histórico anterior é preservado."
-            : kind === "employees"
-            ? "Gerencie pessoas, vínculos e histórico de movimentações."
-            : kind === "clients"
-              ? "Organize os clientes e os postos onde sua equipe atua."
-              : "Controle quem acessa o sistema e o que cada perfil pode fazer."
-        }
-      >
-        {editable && (
-          <NewButton
-            onClick={() => {
-              setEditing(undefined);
-              setCreating(true);
-            }}
-            label={
-              current === "allocations" ? "Nova movimentação" : "Novo registro"
-            }
-          />
-        )}
-      </Heading>
-      {kind === "users" && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-slate-500">Usuários ativos</p>
-              <h3 className="text-2xl font-black text-slate-900 mt-1">{data.users.filter(u => u.status === 'ativo').length}</h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-              <Check size={18} strokeWidth={3} />
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-slate-500">Usuários inativos</p>
-              <h3 className="text-2xl font-black text-slate-900 mt-1">{data.users.filter(u => u.status !== 'ativo').length}</h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center font-bold">
-              <Minus size={18} strokeWidth={3} />
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-slate-500">Perfis de acesso</p>
-              <h3 className="text-2xl font-black text-slate-900 mt-1">{data.roles.length}</h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-[#f5b300] flex items-center justify-center font-bold">
-              <Star size={18} strokeWidth={2.5} />
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-slate-500">Acessos registrados</p>
-              <h3 className="text-2xl font-black text-slate-900 mt-1">{data.audit.filter(a => a.action === 'login').length}</h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#071e4d] flex items-center justify-center font-bold">
-              <Zap size={18} strokeWidth={2.5} />
-            </div>
-          </div>
-        </div>
-      )}
-      <div className="tabs inline-flex p-1 bg-slate-100/90 rounded-2xl border border-slate-200/80 mb-4 gap-1">
-        {tabs.map((t) => (
-          <button
-            key={t}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-              current === t
-                ? "bg-[#071e4d] text-white shadow-sm"
-                : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
-            }`}
-            onClick={() => setTab(t as typeof kind)}
-          >
-            {title[t]}
-          </button>
-        ))}
-      </div>
       <DataTable
         title={title[current]}
+        icon={catalogIcons[current]}
         rows={rows}
         columns={columns[current]}
+        subtabs={
+          kind === "users" ? (
+            <div className="flex items-center gap-2 flex-shrink-0" role="tablist">
+              {tabs.map((t) => {
+                const isActive = current === t;
+                const Icon = t === "users" ? Users : KeyRound;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-150 cursor-pointer ${
+                      isActive
+                        ? "bg-[#071e4d] text-white shadow-sm ring-1 ring-[#071e4d]"
+                        : "bg-slate-50 hover:bg-slate-100/90 text-slate-600 hover:text-slate-900 border border-slate-200/90 active:scale-95 shadow-2xs"
+                    }`}
+                    onClick={() => setTab(t as typeof kind)}
+                  >
+                    <Icon
+                      size={15}
+                      className={isActive ? "text-[#f5b300]" : "text-slate-400"}
+                      strokeWidth={2.2}
+                    />
+                    <span>{title[t]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : undefined
+        }
+        createButton={
+          editable ? (
+            <NewButton
+              onClick={() => {
+                if (current === "users") {
+                  navigate("/usuarios/novo");
+                } else if (current === "employees") {
+                  navigate("/colaboradores/novo");
+                } else if (current === "clients") {
+                  navigate("/clientes/novo");
+                } else {
+                  setEditing(undefined);
+                  setCreating(true);
+                }
+              }}
+              label={createButtonLabel}
+            />
+          ) : undefined
+        }
         actions={(r) => (
-          <>
+          <div className="flex items-center gap-1.5 justify-end">
             {current === "employees" && (
-              <button className="text-button" onClick={() => setDetail(r)}>
+              <button
+                type="button"
+                className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-all cursor-pointer"
+                onClick={() => setDetail(r)}
+              >
                 Ver perfil
               </button>
             )}
             {editable && current !== "allocations" && !(current === "users" && r.employeeId) && (
-              <button className="text-button" onClick={() => setEditing(r)}>
+              <button
+                type="button"
+                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+                onClick={() => {
+                  if (current === "users") {
+                    navigate(`/usuarios/${r.id}/editar`);
+                  } else if (current === "employees") {
+                    navigate(`/colaboradores/${r.id}/editar`);
+                  } else if (current === "clients") {
+                    navigate(`/clientes/${r.id}/editar`);
+                  } else {
+                    setEditing(r);
+                  }
+                }}
+              >
                 Editar
               </button>
             )}
-            {current === "users" && r.employeeId && <span className="muted">Gerenciado no colaborador</span>}
-          </>
+            {current === "users" && r.employeeId && (
+              <span className="text-[11px] text-slate-400 font-medium italic">Gerenciado no colaborador</span>
+            )}
+          </div>
         )}
       />
       {(creating || editing) && current === "employees" && (

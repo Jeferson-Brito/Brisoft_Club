@@ -44,7 +44,7 @@ label {
   font-weight: 600;
   color: #50617a;
 }
-input:not([type="checkbox"]):not([type="file"]),
+input:not([type="checkbox"]):not([type="file"]):not([class*="pl-"]):not([style*="padding-left"]):not(.search-input),
 select,
 textarea {
   border: 1px solid #dce4ef;
@@ -108,7 +108,7 @@ textarea {
   z-index: 40;
 }
 .sidebar-shell aside {
-  background: #071e4d !important;
+  background: #ffffff !important;
 }
 .app-main {
   flex: 1;
@@ -116,8 +116,8 @@ textarea {
 }
 .app-topbar {
   height: 65px;
-  background: #071e4d !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
   display: flex;
   align-items: center;
   gap: 18px;
@@ -407,8 +407,7 @@ textarea {
   color: #94a3b8;
 }
 .search-box input {
-  padding: 7px 10px !important;
-  width: 190px;
+  width: 100%;
 }
 .table-scroll {
   overflow-x: auto;
@@ -1829,44 +1828,49 @@ a:focus:not(:focus-visible),
   transform-origin: bottom center;
 }
 
-/* ── Padrão Corporativo Grupo Combate para Todas as Tabelas ── */
+/* ── Padrão Light/Branco para Tabelas no Desktop ── */
 .table-panel thead,
 table thead,
 .table-scroll thead,
 .robbyson-table thead,
 thead {
-  background: #071e4d !important;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.1) !important;
+  background: #f8fafd !important;
+  border-bottom: 1px solid #e2e8f0 !important;
 }
 .table-panel th,
 table th,
 .table-scroll th,
 .robbyson-table th,
 thead th {
-  background: #071e4d !important;
-  color: #ffffff !important;
+  background: #f8fafd !important;
+  color: #64748b !important;
   font-size: 11px !important;
-  font-weight: 800 !important;
+  font-weight: 700 !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.05em !important;
-  padding-block: 13px !important;
+  letter-spacing: 0.04em !important;
+  padding-block: 11px !important;
   padding-inline: 14px !important;
 }
 .table-panel th button,
 table th button,
 .table-scroll th button,
 thead th button {
-  color: #ffffff !important;
+  color: #64748b !important;
   font-size: 11px !important;
-  font-weight: 800 !important;
+  font-weight: 700 !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.05em !important;
+  letter-spacing: 0.04em !important;
   background: transparent !important;
   border: none !important;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+.table-panel th button:hover,
+table th button:hover,
+thead th button:hover {
+  color: #0f172a !important;
 }
 .table-panel {
   border-radius: 16px !important;

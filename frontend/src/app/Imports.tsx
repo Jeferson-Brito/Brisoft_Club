@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Upload, FileSpreadsheet, CheckCircle2, Clock3, XCircle } from "lucide-react";
+import { Upload, FileSpreadsheet } from "lucide-react";
 import { api, dateLabel, useData } from "./state";
-import { Heading, Panel, Action, DataTable, Status, csvDownload } from "./ui";
+import { Panel, Action, DataTable, Status, csvDownload } from "./ui";
 export function Imports() {
   const { data, refresh, notify } = useData();
   const [file, setFile] = useState<File>();
@@ -32,50 +32,7 @@ export function Imports() {
     }
   }
   return (
-    <>
-      <Heading
-        title="Importações"
-        icon={<Upload size={20} className="text-[#f5b300]" />}
-        description="Importe colaboradores, clientes e postos com prévia e validação antes de salvar."
-      />
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-slate-500">Importações realizadas</p>
-            <h3 className="text-2xl font-black text-slate-900 mt-1">{data.imports.length}</h3>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#071e4d] flex items-center justify-center font-bold">
-            <Upload size={18} />
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-slate-500">Concluídas com sucesso</p>
-            <h3 className="text-2xl font-black text-slate-900 mt-1">{data.imports.filter(item => item.status === 'concluida').length}</h3>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-            <CheckCircle2 size={18} />
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-slate-500">Aguardando confirmação</p>
-            <h3 className="text-2xl font-black text-slate-900 mt-1">{data.imports.filter(item => item.status === 'previa').length}</h3>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-[#f5b300] flex items-center justify-center font-bold">
-            <Clock3 size={18} />
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-slate-500">Importações com erro</p>
-            <h3 className="text-2xl font-black text-slate-900 mt-1">{data.imports.filter(item => item.errors > 0).length}</h3>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
-            <XCircle size={18} />
-          </div>
-        </div>
-      </div>
+    <div className="space-y-4 page-enter max-w-6xl mx-auto">
       <Panel>
         <div className="upload-zone">
           <FileSpreadsheet size={42} />
@@ -208,6 +165,6 @@ export function Imports() {
           },
         ]}
       />
-    </>
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Download, Filter, Search, Trophy, X, Crown, Calendar, ChevronRight } from 'lucide-react';
+import { Download, Filter, Search, Trophy, X, Crown, Calendar, ChevronRight, ChevronDown } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { usePhotoData } from '../../app/photo-data';
 
@@ -143,22 +143,6 @@ export default function RankingGeral() {
 
   return (
     <div className="ranking-page page-enter space-y-4">
-      {/* ── Cabeçalho Padrão Corporativo Grupo Combate ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 mb-2 border-b border-slate-200">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#071e4d] text-[#f5b300] flex items-center justify-center shadow-md shadow-[#071e4d]/20 flex-shrink-0">
-            <Trophy size={22} className="text-[#f5b300]" />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">
-              Ranking Geral
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
-              Classificação geral dos colaboradores por pontuação e desempenho na temporada {season?.name ? `(${season.name})` : ''}
-            </p>
-          </div>
-        </div>
-      </div>
       {currentEmployee && <section className="my-ranking mb-3" aria-label="Minha posição no ranking">
         <Avatar name={currentEmployee.name} src={currentEmployee.photo} size="md" />
         <div className="my-ranking-copy"><span>Sua posição nesta temporada</span><strong>{currentEmployee.position ? `${currentEmployee.position}º lugar` : 'Aguardando classificação'}</strong><small>{currentEmployee.name} · {currentEmployee.client}</small></div>
@@ -279,9 +263,39 @@ export default function RankingGeral() {
         </div>
       </section>
 
-      {/* ── Toolbar: Busca Rápida + Filtros + Exportar (se admin/analista) ── */}
-      <div className="bg-white rounded-2xl p-2.5 sm:p-3.5 border border-slate-100 shadow-xs mb-3 space-y-2">
-        <div className="flex items-center gap-2">
+      {/* ── Toolbar: Temporada + Busca Rápida + Filtros + Exportar ── */}
+      <div className="bg-white rounded-2xl p-2.5 sm:p-3.5 border border-slate-100 shadow-xs mb-3 space-y-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          {/* Seletor Direto de Temporada (visível na barra) */}
+          {data.seasons.length > 0 && (
+            <div className="relative min-w-[210px] sm:w-60 flex-shrink-0">
+              <Calendar
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-600 pointer-events-none"
+              />
+              <select
+                value={currentSeasonId}
+                onChange={(e) => setSeasonId(e.target.value)}
+                style={{ paddingLeft: '36px', paddingRight: '30px' }}
+                className="w-full h-10 text-xs font-bold bg-blue-50/70 border border-blue-200/90 hover:bg-blue-50/90 text-blue-950 rounded-xl outline-none focus:ring-2 focus:ring-blue-400/20 cursor-pointer appearance-none transition-all"
+                title="Selecione a temporada para visualizar o ranking"
+              >
+                {data.seasons.map((s) => {
+                  const isCurrentActive = s.status === 'ativa';
+                  return (
+                    <option key={s.id} value={s.id}>
+                      {s.name} {isCurrentActive ? '● (Atual)' : s.status === 'encerrada' ? '(Encerrada)' : `(${s.status})`}
+                    </option>
+                  );
+                })}
+              </select>
+              <ChevronDown
+                size={14}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none"
+              />
+            </div>
+          )}
+
           {/* Campo de Busca Rápida */}
           <div className="relative flex-1 group">
             <Search
@@ -293,7 +307,7 @@ export default function RankingGeral() {
               placeholder="Buscar por colaborador, matrícula, empresa..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ paddingLeft: '38px', paddingRight: '30px' }}
+              style={{ paddingLeft: '44px', paddingRight: '30px' }}
               className="w-full h-10 text-xs bg-slate-50 border border-slate-200/90 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all font-medium"
             />
             {search && (
@@ -308,32 +322,57 @@ export default function RankingGeral() {
             )}
           </div>
 
-          {/* Botão de Filtros (Quadrado com ícone azul) */}
-          <button
-            type="button"
-            onClick={() => setFiltersOpen(prev => !prev)}
-            className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer flex-shrink-0 ${
-              filtersOpen || activeFilterCount > 0
-                ? 'bg-blue-50 border-blue-300 text-blue-600'
-                : 'bg-white border-slate-200/90 text-[#2563eb] hover:bg-slate-50'
-            }`}
-            title="Filtrar ranking"
-          >
-            <Filter size={16} />
-          </button>
-
-          {/* Exportação (apenas desktop) */}
-          {canExport && (
-            <a
-              href={`/api/export/ranking?season=${encodeURIComponent(currentSeasonId)}`}
-              className="hidden sm:inline-flex items-center justify-center gap-1.5 h-10 px-3.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl transition-all shadow-2xs cursor-pointer flex-shrink-0"
-              title="Exportar ranking para planilha Excel"
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Botão de Filtros (Quadrado com ícone azul) */}
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(prev => !prev)}
+              className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer flex-shrink-0 ${
+                filtersOpen || activeFilterCount > 0
+                  ? 'bg-blue-50 border-blue-300 text-blue-600'
+                  : 'bg-white border-slate-200/90 text-[#2563eb] hover:bg-slate-50'
+              }`}
+              title="Filtros avançados de ranking"
             >
-              <Download size={14} className="text-slate-500" />
-              <span>Exportar</span>
-            </a>
-          )}
+              <Filter size={16} />
+            </button>
+
+            {/* Exportação (apenas desktop) */}
+            {canExport && (
+              <a
+                href={`/api/export/ranking?season=${encodeURIComponent(currentSeasonId)}`}
+                className="inline-flex items-center justify-center gap-1.5 h-10 px-3.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl transition-all shadow-2xs cursor-pointer flex-shrink-0"
+                title="Exportar ranking para planilha Excel"
+              >
+                <Download size={14} className="text-slate-500" />
+                <span className="hidden sm:inline">Exportar</span>
+              </a>
+            )}
+          </div>
         </div>
+
+        {/* Aviso de Histórico quando uma temporada encerrada/passada estiver selecionada */}
+        {currentSeason && currentSeason.status !== 'ativa' && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 px-3 py-2 rounded-xl bg-amber-50/90 border border-amber-200/80 text-amber-900 text-xs animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <span className="px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-950 text-[10px] font-black uppercase tracking-wide shrink-0">
+                Histórico
+              </span>
+              <span className="text-amber-900">
+                Visualizando ranking consolidado da temporada <strong>{currentSeason.name}</strong> ({currentSeason.status})
+              </span>
+            </div>
+            {season && season.id !== currentSeasonId && (
+              <button
+                type="button"
+                onClick={() => setSeasonId(season.id)}
+                className="font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left sm:text-right shrink-0"
+              >
+                Voltar para temporada atual →
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Indicador de Filtros Ativos */}
         {(activeFilterCount > 0 || search) && (
@@ -359,7 +398,11 @@ export default function RankingGeral() {
               <div>
                 <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Temporada</label>
                 <select className={selectCls} value={currentSeasonId} onChange={event => setSeasonId(event.target.value)}>
-                  {data.seasons.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                  {data.seasons.map(item => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} {item.status === 'ativa' ? '(Atual)' : `(${item.status})`}
+                    </option>
+                  ))}
                 </select>
               </div>
 

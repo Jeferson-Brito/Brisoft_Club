@@ -3,7 +3,7 @@ import {
   ChevronRight, ChevronLeft, ChevronDown, Send, MapPin,
   UserCheck, CheckCircle2, Calendar, Star, FileText,
   Building2, RotateCcw, Check, X, Briefcase, Clock,
-  SkipForward, AlertCircle
+  SkipForward, AlertCircle, Users
 } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { api } from '../../app/state';
@@ -294,11 +294,11 @@ export default function Avaliar() {
   if (!employee) {
     return (
       <div className="page-enter bg-white border border-slate-200 rounded-2xl p-8 text-center shadow-xs max-w-lg mx-auto my-8">
-        <div className="w-14 h-14 bg-emerald-50 rounded-2xl text-emerald-600 flex items-center justify-center mx-auto mb-3 shadow-inner">
-          <CheckCircle2 size={32} />
+        <div className="w-14 h-14 bg-slate-100 rounded-2xl text-slate-500 flex items-center justify-center mx-auto mb-3 shadow-inner">
+          <Users size={32} />
         </div>
-        <h1 className="text-lg font-bold text-slate-800">Todas as avaliações foram concluídas!</h1>
-        <p className="text-sm text-slate-500 mt-1">Você não possui novos colaboradores pendentes para avaliar neste ciclo.</p>
+        <h1 className="text-lg font-bold text-slate-800">Nenhum colaborador vinculado</h1>
+        <p className="text-sm text-slate-500 mt-1">Você não possui colaboradores vinculados para avaliar neste ciclo.</p>
         <div className="flex items-center justify-center gap-3 mt-5">
           <Link to="/avaliacoes/concluidas" className="btn secondary text-xs">Ver avaliações enviadas</Link>
           <Link to="/ranking/geral" className="btn primary text-xs">Acessar Ranking</Link>
@@ -309,9 +309,99 @@ export default function Avaliar() {
 
   return (
     <div className="space-y-4 page-enter mobile-evaluation pb-8">
+      {/* ── Barra Seletora de Colaboradores com Status Visual e Cinza ── */}
+      <div className="bg-white rounded-2xl p-3 shadow-xs border border-slate-200/80 space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-800">Colaboradores do seu ciclo</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+              {total} {total === 1 ? 'colaborador' : 'colaboradores'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setCurrentIdx(prev => Math.max(0, prev - 1))}
+              disabled={currentIdx === 0}
+              className="p-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+              title="Colaborador anterior"
+            >
+              <ChevronLeft size={15} />
+            </button>
+            <span className="text-xs font-semibold text-slate-500 px-1">
+              {currentIdx + 1} de {total}
+            </span>
+            <button
+              type="button"
+              onClick={() => setCurrentIdx(prev => Math.min(total - 1, prev + 1))}
+              disabled={currentIdx === total - 1}
+              className="p-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+              title="Próximo colaborador"
+            >
+              <ChevronRight size={15} />
+            </button>
+          </div>
+        </div>
+
+        {/* Carrossel de Chips dos Colaboradores */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 scrollbar-thin">
+          {toEvaluate.map((item, idx) => {
+            const isSelected = idx === currentIdx;
+            const isGray = item.isGray;
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setCurrentIdx(idx)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-left shrink-0 transition-all cursor-pointer ${
+                  isSelected
+                    ? isGray
+                      ? 'bg-slate-100 border-slate-400 ring-2 ring-slate-300'
+                      : 'bg-blue-50/80 border-blue-500 ring-2 ring-blue-500/20'
+                    : isGray
+                    ? 'bg-slate-50/70 border-slate-200 opacity-60 hover:opacity-90 hover:bg-slate-100'
+                    : 'bg-white border-slate-200 hover:border-blue-300 hover:bg-blue-50/30'
+                }`}
+              >
+                <div className={`relative ${isGray ? 'grayscale' : ''}`}>
+                  <Avatar name={item.name} src={item.photo} size="sm" />
+                  {item.isEvaluated ? (
+                    <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border border-white flex items-center justify-center text-[8px] text-white font-black" title="Avaliação concluída">✓</span>
+                  ) : !item.windowOpen ? (
+                    <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-slate-400 rounded-full border border-white flex items-center justify-center text-[8px] text-white" title="Fora do período">🔒</span>
+                  ) : null}
+                </div>
+
+                <div className="min-w-0 pr-1">
+                  <div className={`text-xs font-bold truncate max-w-[130px] sm:max-w-[160px] ${
+                    isGray ? 'text-slate-500' : 'text-slate-800'
+                  }`}>
+                    {item.name}
+                  </div>
+                  <div className="text-[10px] text-slate-400 truncate max-w-[130px] sm:max-w-[160px]">
+                    {item.isEvaluated ? (
+                      <span className="text-slate-500 font-semibold">Avaliado · {item.nextCycleStartLabel ? `Próx. ${item.nextCycleStartLabel}` : 'Concluído'}</span>
+                    ) : !item.windowOpen ? (
+                      <span className="text-amber-700 font-semibold">Liberado em {item.windowStartLabel || 'breve'}</span>
+                    ) : (
+                      <span className="text-blue-600 font-bold">Disponível para avaliar</span>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* ── Fixed / Sticky Employee Header Card ── */}
       <div
-        className="bg-white rounded-2xl p-3.5 sm:p-4 shadow-sm border border-slate-100 transition-all"
+        className={`rounded-2xl p-3.5 sm:p-4 shadow-sm border transition-all ${
+          employee?.isGray
+            ? 'bg-slate-50/90 border-slate-200'
+            : 'bg-white border-slate-100'
+        }`}
       >
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-3">
           {/* Left: Avatar + Colaborador Info */}
@@ -320,25 +410,35 @@ export default function Avaliar() {
               <button
                 type="button"
                 onClick={() => setPhotoModalOpen(true)}
-                className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl overflow-hidden bg-slate-900 flex items-center justify-center shadow-md ring-2 ring-blue-500/20 hover:ring-blue-500/60 hover:scale-105 active:scale-95 transition-all cursor-pointer group"
+                className={`w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl overflow-hidden bg-slate-900 flex items-center justify-center shadow-md transition-all cursor-pointer group ${
+                  employee?.isGray ? 'grayscale opacity-75 ring-2 ring-slate-300' : 'ring-2 ring-blue-500/20 hover:ring-blue-500/60 hover:scale-105 active:scale-95'
+                }`}
                 title="Clique para ampliar a foto do colaborador"
               >
                 <Avatar name={employee?.name ?? ''} src={employee?.photo} size="lg" />
               </button>
-              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-emerald-500 border-2 border-white rounded-full pointer-events-none" title="Ativo no ciclo" />
+              {employee?.isEvaluated ? (
+                <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full flex items-center justify-center text-[9px] text-white font-bold" title="Avaliado">✓</span>
+              ) : employee?.canEvaluate ? (
+                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-emerald-500 border-2 border-white rounded-full pointer-events-none" title="Ativo no ciclo" />
+              ) : (
+                <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-slate-400 border-2 border-white rounded-full flex items-center justify-center text-[9px] text-white font-bold" title="Aguardando período">🔒</span>
+              )}
             </div>
 
             <div className="min-w-0 flex-1">
               <div className="w-full text-left group">
                 {/* Row 1: Name (truncates) + Counter + Pular */}
                 <div className="flex items-center gap-2 min-w-0">
-                  <h2 className="text-sm sm:text-base font-extrabold text-slate-800 leading-tight truncate min-w-0 flex-1">
+                  <h2 className={`text-sm sm:text-base font-extrabold leading-tight truncate min-w-0 flex-1 ${
+                    employee?.isGray ? 'text-slate-600' : 'text-slate-800'
+                  }`}>
                     {employee?.name}
                   </h2>
                   <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 flex-shrink-0" title={`Colaborador ${currentIdx + 1} de ${total}`}>
                     {currentIdx + 1}/{total}
                   </span>
-                  {employee?.windowOpen && (
+                  {employee?.canEvaluate && (
                     <button
                       type="button"
                       onClick={() => {
@@ -356,10 +456,26 @@ export default function Avaliar() {
                 </div>
 
                 {/* Row 2: Role badge */}
-                <div className="mt-0.5">
-                  <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/60">
+                <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                  <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    employee?.isGray ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-blue-50 text-blue-700 border-blue-200/60'
+                  }`}>
                     {employee?.role || 'Colaborador'}
                   </span>
+
+                  {employee?.isEvaluated && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 border border-slate-300">
+                      <CheckCircle2 size={10} className="text-emerald-600" />
+                      Avaliação Concluída neste ciclo
+                    </span>
+                  )}
+
+                  {!employee?.isEvaluated && !employee?.windowOpen && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                      <Clock size={10} className="text-amber-600" />
+                      Fora do período avaliativo
+                    </span>
+                  )}
                 </div>
 
                 {/* Row 3: Client / Post / Ver mais */}
@@ -420,9 +536,6 @@ export default function Avaliar() {
               )}
             </div>
           </div>
-
-
-
         </div>
       </div>
 
@@ -430,7 +543,7 @@ export default function Avaliar() {
         {/* ── Main form column ── */}
         <div className="flex-1 min-w-0 w-full space-y-3.5">
           {/* Banner if employee was previously skipped */}
-          {employee?.isSkipped && employee?.windowOpen && (
+          {employee?.isSkipped && employee?.canEvaluate && (
             <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-3.5 flex items-start gap-3 text-amber-950 shadow-2xs">
               <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1 text-xs">
@@ -443,23 +556,45 @@ export default function Avaliar() {
             </div>
           )}
 
-          {/* If collaborator is outside window */}
-          {!employee?.windowOpen ? (
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 text-center space-y-3 shadow-xs">
-              <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center mx-auto shadow-inner">
+          {/* Banner em Cinza quando JÁ AVALIADO NESTE CICLO */}
+          {employee?.isEvaluated ? (
+            <div className="bg-slate-100 border border-slate-300 rounded-2xl p-6 text-center space-y-3 shadow-xs">
+              <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 text-slate-600 flex items-center justify-center mx-auto shadow-2xs">
+                <CheckCircle2 size={28} className="text-emerald-600" />
+              </div>
+              <h3 className="text-base sm:text-lg font-black text-slate-800">
+                Avaliação Concluída neste Ciclo
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
+                {employee.availabilityMessage}
+              </p>
+              <div className="pt-2">
+                <Link
+                  to="/avaliacoes/concluidas"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-bold shadow-2xs transition-all"
+                >
+                  <FileText size={13} className="text-blue-600" />
+                  <span>Ver histórico de avaliações enviadas</span>
+                </Link>
+              </div>
+            </div>
+          ) : !employee?.windowOpen ? (
+            /* Banner em Cinza quando FORA DO PERÍODO DE AVALIAÇÃO */
+            <div className="bg-slate-100/90 border border-slate-300 rounded-2xl p-6 sm:p-8 text-center space-y-3 shadow-xs">
+              <div className="w-14 h-14 rounded-2xl bg-white text-slate-500 border border-slate-200 flex items-center justify-center mx-auto shadow-2xs">
                 <Clock size={28} />
               </div>
-              <h3 className="text-base sm:text-lg font-extrabold text-slate-800">
+              <h3 className="text-base sm:text-lg font-black text-slate-800">
                 {employee?.windowStatus === 'upcoming'
                   ? 'Período de avaliação ainda não iniciado para o seu perfil'
                   : 'Prazo de avaliação encerrado para o seu perfil'}
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
-                {employee?.windowStatus === 'upcoming'
-                  ? `Conforme a configuração da temporada, o período de avaliação para o seu perfil estará disponível a partir de ${employee?.windowStartLabel || 'data definida'}${employee?.windowEndLabel ? ` até ${employee.windowEndLabel}` : ''}. Você pode visualizar os dados do colaborador, mas a avaliação estará habilitada apenas durante o período.`
-                  : `O prazo de avaliação para o seu perfil encerrou em ${employee?.windowEndLabel || 'data definida'}.`}
+                {employee.availabilityMessage}
               </p>
-
+              <p className="text-[11px] text-slate-400">
+                Você pode visualizar todos os dados do colaborador acima, porém o envio da avaliação estará habilitado exclusivamente no período estipulado.
+              </p>
             </div>
           ) : confirmed ? (
             <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-8 flex flex-col items-center justify-center gap-2 text-center shadow-xs">

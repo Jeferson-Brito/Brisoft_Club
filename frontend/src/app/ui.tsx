@@ -12,9 +12,6 @@ import {
 } from "lucide-react";
 import { fmt, useData, type Row } from "./state";
 export function Heading({
-  title,
-  description,
-  icon,
   children,
 }: {
   title?: string;
@@ -22,30 +19,10 @@ export function Heading({
   icon?: ReactNode;
   children?: ReactNode;
 }) {
+  if (!children) return null;
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 mb-4 border-b border-slate-200">
-      {(title || icon || description) ? (
-        <div className="flex items-center gap-3 min-w-0">
-          {icon && (
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#071e4d] text-[#f5b300] flex items-center justify-center shadow-md shadow-[#071e4d]/20 flex-shrink-0">
-              {icon}
-            </div>
-          )}
-          <div className="min-w-0">
-            {title && (
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight truncate">
-                {title}
-              </h1>
-            )}
-            {description && (
-              <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5 line-clamp-2">
-                {description}
-              </p>
-            )}
-          </div>
-        </div>
-      ) : <div />}
-      {children && <div className="flex items-center gap-2 flex-wrap flex-shrink-0">{children}</div>}
+    <div className="flex justify-end items-center mb-3">
+      <div className="actions">{children}</div>
     </div>
   );
 }
@@ -64,6 +41,11 @@ export function Panel({
   );
 }
 export function Status({ value }: { value: string | null }) {
+  const v = (value || "").toLowerCase();
+  const isAtivo = ["ativo", "ativa", "concluida", "enviada", "publicada"].includes(v);
+  const isWarn = ["licenca", "planejada", "planejado", "rascunho", "previa", "implantacao"].includes(v);
+  const isDanger = ["inativo", "cancelada", "impossivel"].includes(v);
+
   const label: Record<string, string> = {
     ativo: "Ativo",
     ativa: "Ativa",
@@ -80,14 +62,24 @@ export function Status({ value }: { value: string | null }) {
     concluida: "Concluída",
     inativo: "Inativo",
     licenca: "Licença",
+    implantacao: "Em implantação",
     ouro: "Ouro",
     prata: "Prata",
     bronze: "Bronze",
     diamante: "Diamante",
   };
+
+  const badgeCls = isAtivo
+    ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
+    : isWarn
+    ? "bg-amber-50 text-amber-700 border border-amber-200/80"
+    : isDanger
+    ? "bg-rose-50 text-rose-700 border border-rose-200/80"
+    : "bg-slate-100 text-slate-600 border border-slate-200";
+
   return (
-    <span className={`pill pill-${value || "none"}`}>
-      {label[value || ""] || value || "Sem classificação"}
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide ${badgeCls}`}>
+      {label[v] || value || "Sem classificação"}
     </span>
   );
 }
@@ -406,14 +398,20 @@ export function DataTable({
   rows,
   columns,
   title = "Registros",
+  icon,
   actions,
   search = true,
+  createButton,
+  subtabs,
 }: {
   rows: Row[];
   columns: Column[];
   title?: string;
+  icon?: ReactNode;
   actions?: (r: Row) => ReactNode;
   search?: boolean;
+  createButton?: ReactNode;
+  subtabs?: ReactNode;
 }) {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -435,104 +433,151 @@ export function DataTable({
     );
   const pages = Math.max(1, Math.ceil(filtered.length / 10));
   const current = Math.min(page, pages);
+
   return (
-    <section className="panel table-panel">
-      <div className="table-toolbar">
-        <h2>
-          {title} <span className="count">{filtered.length}</span>
-        </h2>
-        <div className="actions">
-          {search && (
-            <div className="search-box">
-              <Search size={16} />
-              <input
-                aria-label={`Buscar ${title}`}
-                placeholder="Buscar nesta lista…"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setPage(1);
-                }}
-              />
+    <div className="space-y-3.5 font-sans page-enter">
+      {/* ── Barra Superior Padronizada: Sub-abas + Busca + Botão de Ação ── */}
+      <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1">
+            {subtabs}
+            {search && (
+              <div className="relative flex-1 max-w-md">
+                <Search
+                  size={16}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                />
+                <input
+                  aria-label={`Buscar ${title}`}
+                  placeholder={`Buscar em ${title.toLowerCase()}...`}
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setPage(1);
+                  }}
+                  style={{ paddingLeft: "44px" }}
+                  className="w-full pl-11 pr-4 py-2 text-xs font-medium border border-slate-200 rounded-xl bg-slate-50/50 hover:bg-white focus:bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all search-input"
+                />
+              </div>
+            )}
+          </div>
+
+          {createButton && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {createButton}
             </div>
           )}
-          <button
-            className="btn secondary compact"
-            onClick={() => csvDownload(title, filtered, columns)}
-          >
-            <Download size={15} /> CSV
-          </button>
         </div>
       </div>
-      <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              {columns.map((c) => (
-                <th key={c.key}>
-                  <button onClick={() => setSort(c.key)}>
-                    {c.label}
-                    {sort === c.key ? " ↑" : ""}
-                  </button>
-                </th>
-              ))}
-              {actions && <th>Ações</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.slice((current - 1) * 10, current * 10).map((r) => (
-              <tr key={r.id}>
+
+      {/* ── Info Bar + Exportar CSV ── */}
+      <div className="flex items-center justify-between px-1 pt-0.5">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+          {icon && <span className="text-blue-600 flex-shrink-0">{icon}</span>}
+          <span>{title}</span>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-100">
+            {filtered.length} {filtered.length === 1 ? "registro" : "registros"}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => csvDownload(title, filtered, columns)}
+          className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
+        >
+          <Download size={13} className="text-slate-500" />
+          <span>Exportar CSV</span>
+        </button>
+      </div>
+
+      {/* ── Table Card ── */}
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/90 text-slate-500 border-b border-slate-200 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
                 {columns.map((c) => (
-                  <td key={c.key}>{c.render ? c.render(r) : fmt(r[c.key])}</td>
+                  <th key={c.key} className="py-3 px-3.5 text-slate-600">
+                    <button
+                      type="button"
+                      onClick={() => setSort(c.key)}
+                      className="font-bold text-[11px] uppercase tracking-wider text-slate-600 hover:text-slate-900 inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>{c.label}</span>
+                      {sort === c.key ? <span className="text-blue-600 font-black">↑</span> : null}
+                    </button>
+                  </th>
                 ))}
                 {actions && (
-                  <td>
-                    <div className="row-actions">{actions(r)}</div>
-                  </td>
+                  <th className="py-3 px-3.5 text-right font-bold text-[11px] uppercase tracking-wider text-slate-600">
+                    Ações
+                  </th>
                 )}
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {!filtered.length && (
-          <div className="empty">
-            Nenhum registro encontrado.
-            <small>Cadastre dados ou ajuste os filtros para começar.</small>
-          </div>
-        )}
-      </div>
-      <div className="table-footer">
-        <span>
-          {filtered.length
-            ? `${(current - 1) * 10 + 1}–${Math.min(current * 10, filtered.length)}`
-            : "0"}{" "}
-          de {filtered.length} resultados
-        </span>
-        <div className="actions">
-          <button
-            aria-label="Página anterior"
-            className="icon-btn"
-            disabled={current === 1}
-            onClick={() => setPage(current - 1)}
-          >
-            <ChevronLeft size={17} />
-          </button>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filtered.slice((current - 1) * 10, current * 10).map((r) => (
+                <tr key={r.id} className="hover:bg-slate-50/80 transition-colors border-b border-slate-100/80">
+                  {columns.map((c) => (
+                    <td key={c.key} className="py-3 px-3.5 text-slate-800 font-medium">
+                      {c.render ? c.render(r) : fmt(r[c.key])}
+                    </td>
+                  ))}
+                  {actions && (
+                    <td className="py-3 px-3.5 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1.5 justify-end">
+                        {actions(r)}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!filtered.length && (
+            <div className="p-8 text-center text-slate-400 text-xs">
+              <div className="font-semibold text-slate-600 mb-1">Nenhum registro encontrado</div>
+              <div>Cadastre novos dados ou ajuste o termo de busca.</div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Table Footer / Pagination ── */}
+        <div className="bg-slate-50/50 px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 font-medium">
           <span>
-            {current} / {pages}
+            {filtered.length
+              ? `${(current - 1) * 10 + 1}–${Math.min(current * 10, filtered.length)} de ${filtered.length} registros`
+              : "0 registros"}
           </span>
-          <button
-            aria-label="Próxima página"
-            className="icon-btn"
-            disabled={current === pages}
-            onClick={() => setPage(current + 1)}
-          >
-            <ChevronRight size={17} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Página anterior"
+              disabled={current === 1}
+              onClick={() => setPage(current - 1)}
+              className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer text-slate-600 shadow-2xs"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="font-bold text-slate-700 px-1">
+              {current} / {pages}
+            </span>
+            <button
+              type="button"
+              aria-label="Próxima página"
+              disabled={current === pages}
+              onClick={() => setPage(current + 1)}
+              className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer text-slate-600 shadow-2xs"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
+
 export const NewButton = ({
   onClick,
   label = "Novo registro",

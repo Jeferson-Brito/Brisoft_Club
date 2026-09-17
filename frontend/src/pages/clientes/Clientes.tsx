@@ -1,26 +1,25 @@
 import { useState } from 'react';
 import {
-  Building2, MessageSquare, Users, Trophy, Filter,
-  Download, Plus, MoreHorizontal, X, ArrowRight,
-  TrendingUp, Trash2,
+  Search, Building2, Users, Trophy, Filter,
+  Download, Plus, X, ArrowRight,
+  TrendingUp, Trash2, Pencil,
 } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { usePhotoData } from '../../app/photo-data';
 import { api } from '../../app/state';
-import { Editor } from '../../app/ui';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { Client } from '../../types';
 import { DetailModal } from '../../app/ui';
 
 export default function Clientes() {
+  const navigate = useNavigate();
   const { clients, employees, data, refresh, notify } = usePhotoData();
-  const [editing, setEditing] = useState<any>();
-  const [creating, setCreating] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [drawerTab, setDrawerTab] = useState<'geral' | 'postos' | 'colaboradores' | 'avaliacoes'>('geral');
   const [searchName, setSearchName] = useState('');
   const [selectedSegment, setSelectedSegment] = useState('Todos');
   const [selectedStatus, setSelectedStatus] = useState('Todos');
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const filteredClients = clients.filter(c => {
     if (searchName && !`${c.name} ${c.cnpj}`.toLowerCase().includes(searchName.toLowerCase())) return false;
@@ -48,7 +47,6 @@ export default function Clientes() {
     try {
       await api(`/records/clients/${client.id}/delete`, { confirm: true });
       setSelectedClient(null);
-      setEditing(undefined);
       await refresh();
       notify("Cliente excluído.");
     } catch (error) {
@@ -58,122 +56,81 @@ export default function Clientes() {
 
   return (
     <div className="space-y-3.5 page-enter">
-      {/* ── Cabeçalho da Página Padrão Corporativo Grupo Combate ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 pb-1">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#071e4d] text-white flex items-center justify-center shadow-xs flex-shrink-0">
-            <Building2 size={20} />
+      {/* ── Barra Superior Padronizada: Busca + Filtros + Ação ── */}
+      <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-1 max-w-lg">
+            <div className="relative flex-1">
+              <Search
+                size={16}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              />
+              <input
+                type="text"
+                placeholder="Buscar cliente ou responsável..."
+                value={searchName}
+                onChange={(e) => setSearchName(e.target.value)}
+                style={{ paddingLeft: "44px" }}
+                className="w-full pl-11 pr-3 py-2 text-xs font-medium border border-slate-200 rounded-xl bg-slate-50/50 hover:bg-white focus:bg-white text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all search-input"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setFilterOpen((prev) => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                filterOpen || selectedSegment !== 'Todos' || selectedStatus !== 'Todos'
+                  ? 'bg-blue-50 border-blue-200 text-blue-700'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Filter size={14} />
+              <span>Filtros</span>
+              {(selectedSegment !== 'Todos' || selectedStatus !== 'Todos') && (
+                <span className="w-2 h-2 rounded-full bg-blue-600" />
+              )}
+            </button>
+            {(searchName || selectedSegment !== 'Todos' || selectedStatus !== 'Todos') && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="text-xs text-slate-400 hover:text-slate-600 font-medium cursor-pointer"
+              >
+                Limpar
+              </button>
+            )}
           </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 leading-tight">Clientes</h1>
-            <p className="text-xs text-slate-500 font-medium">Gerencie as empresas e postos atendidos pela sua equipe.</p>
-          </div>
-        </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="flex items-center gap-2 bg-[#071e4d] hover:bg-[#0c2e75] active:bg-[#06183d] text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition-all shadow-xs cursor-pointer self-start sm:self-auto"
-        >
-          <Plus size={16} />
-          <span>Novo cliente</span>
-        </button>
-      </div>
 
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-xs flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
-            <Building2 size={18} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-lg font-bold text-slate-800 leading-none">{clients.filter(client => client.status === 'ativo').length}</div>
-            <div className="text-xs font-medium text-slate-500 mt-0.5 truncate">Clientes ativos</div>
-            <div className="text-[10px] text-slate-400 font-medium truncate">cadastrados na plataforma</div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-xs flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center flex-shrink-0">
-            <MessageSquare size={18} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-lg font-bold text-slate-800 leading-none">{data.evaluations.length}</div>
-            <div className="text-xs font-medium text-slate-500 mt-0.5 truncate">Avaliações recebidas</div>
-            <div className="text-[10px] text-slate-400 font-medium truncate">em todas as temporadas</div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-xs flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
-            <Users size={18} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-lg font-bold text-slate-800 leading-none">{employees.filter(employee => employee.score > 0).length}</div>
-            <div className="text-xs font-medium text-slate-500 mt-0.5 truncate">Colaboradores avaliados</div>
-            <div className="text-[10px] text-slate-400 font-medium truncate">em clientes ativos</div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-xs flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
-            <Trophy size={18} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-lg font-bold text-slate-800 leading-none">{clients.length ? Math.round(clients.reduce((sum, client) => sum + client.avgScore, 0) / clients.length) : 0}</div>
-            <div className="text-xs font-medium text-slate-500 mt-0.5 truncate">Média geral de pontos</div>
-            <div className="text-[10px] text-slate-400 font-medium truncate">na temporada selecionada</div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Filters Section ── */}
-      <details className="filter-disclosure bg-white rounded-xl p-3.5 shadow-xs border border-slate-200/80 space-y-2.5">
-        <summary className="flex items-center justify-between cursor-pointer">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-            <Filter size={14} className="text-slate-500" />
-            <span>Filtros</span>
-          </div>
           <button
-            onClick={(event) => { event.preventDefault(); resetFilters(); }}
-            className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors font-medium"
+            type="button"
+            onClick={() => navigate('/clientes/novo')}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#071e4d] hover:bg-[#0c2e75] text-white text-xs sm:text-sm font-extrabold shadow-sm transition-all duration-150 cursor-pointer active:scale-95 flex-shrink-0"
           >
-            Limpar filtros
+            <Plus size={16} strokeWidth={2.5} className="text-[#f5b300]" />
+            <span>Novo cliente</span>
           </button>
-        </summary>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 items-end">
-          <div className="col-span-2 sm:col-span-1 lg:col-span-2">
-            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Buscar cliente</label>
-            <input
-              type="text"
-              placeholder="Buscar cliente..."
-              value={searchName}
-              onChange={e => setSearchName(e.target.value)}
-              className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-700 outline-none focus:ring-1 focus:ring-blue-400"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Segmento</label>
-            <select className={selectCls} value={selectedSegment} onChange={e => setSelectedSegment(e.target.value)}>
-              <option>Todos</option>
-              {segmentOptions.map(segment => <option key={segment}>{segment}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Status</label>
-            <select className={selectCls} value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}>
-              <option>Todos</option>
-              <option value="ativo">Ativo</option>
-              <option value="implantacao">Em implantação</option>
-              <option value="inativo">Inativo</option>
-            </select>
-          </div>
-
         </div>
 
-        <div className="text-right text-[11px] text-slate-400">Os filtros são aplicados automaticamente.</div>
-      </details>
+        {filterOpen && (
+          <div className="pt-3 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-2.5 animate-in fade-in duration-150">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-1">Segmento</label>
+              <select className={selectCls} value={selectedSegment} onChange={e => setSelectedSegment(e.target.value)}>
+                <option value="Todos">Todos os segmentos</option>
+                {segmentOptions.map(segment => <option key={segment} value={segment}>{segment}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-1">Status</label>
+              <select className={selectCls} value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}>
+                <option value="Todos">Todos os status</option>
+                <option value="ativo">Ativo</option>
+                <option value="implantacao">Em implantação</option>
+                <option value="inativo">Inativo</option>
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── Main Layout: Table + Right Detail Drawer ── */}
       <div className="flex flex-col xl:flex-row gap-3.5 items-start">
@@ -194,7 +151,7 @@ export default function Clientes() {
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left">
                 <thead>
-                  <tr className="bg-[#071e4d] text-white font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
+                  <tr className="bg-slate-50/90 text-slate-500 border-b border-slate-200 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
                     <th className="py-2.5 px-3 text-center w-10">#</th>
                     <th className="py-2.5 px-3">Cliente</th>
                     <th className="py-2.5 px-3">CNPJ</th>
@@ -257,8 +214,8 @@ export default function Clientes() {
                         </td>
                         <td className="py-2 px-3 whitespace-nowrap text-center">
                           <div className="inline-flex items-center gap-1">
-                            <button onClick={(event) => { event.stopPropagation(); setEditing(client); }} aria-label={`Editar ${client.name}`} className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition-colors"><MoreHorizontal size={14} /></button>
-                            {data.role.globalScope && <button onClick={(event) => { event.stopPropagation(); void removeClient(client); }} aria-label={`Excluir ${client.name}`} data-help="Exclui permanentemente o cliente e todo o histórico relacionado." className="text-slate-400 hover:text-red-600 p-1 rounded-md transition-colors"><Trash2 size={14} /></button>}
+                            <button onClick={(event) => { event.stopPropagation(); navigate(`/clientes/${client.id}/editar`); }} aria-label={`Editar ${client.name}`} title="Editar cliente e postos" className="text-slate-400 hover:text-blue-600 p-1 rounded-md transition-colors cursor-pointer"><Pencil size={14} /></button>
+                            {data.role.globalScope && <button onClick={(event) => { event.stopPropagation(); void removeClient(client); }} aria-label={`Excluir ${client.name}`} data-help="Exclui permanentemente o cliente e todo o histórico relacionado." className="text-slate-400 hover:text-red-600 p-1 rounded-md transition-colors cursor-pointer"><Trash2 size={14} /></button>}
                           </div>
                         </td>
                       </tr>
@@ -426,8 +383,8 @@ export default function Clientes() {
               <div className="p-3 bg-slate-50 rounded-lg text-xs text-slate-500 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="font-bold text-slate-700">Postos deste cliente</div>
-                  <button onClick={() => { setEditing(selectedClient); setSelectedClient(null); }} className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1.5 font-bold text-white hover:bg-blue-700">
-                    <Plus size={12} /> Gerenciar postos
+                  <button onClick={() => { navigate(`/clientes/${selectedClient.id}/editar`); setSelectedClient(null); }} className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1.5 font-bold text-white hover:bg-blue-700 cursor-pointer">
+                    <Pencil size={12} /> Gerenciar postos
                   </button>
                 </div>
                 <ul className="list-disc pl-4 space-y-1 text-[11px]">
@@ -457,32 +414,6 @@ export default function Clientes() {
           </DetailModal>
         )}
       </div>
-      {(creating || editing) && (
-        <Editor
-          title={editing ? 'Editar cliente' : 'Novo cliente'}
-          fields={[
-            { key: 'name', label: 'Nome do cliente' },
-            { key: 'cnpj', label: 'CNPJ', required: false },
-            { key: 'segment', label: 'Segmento', required: false },
-            { key: 'responsible', label: 'Responsável', required: false },
-            { key: 'email', label: 'E-mail', type: 'email', required: false },
-            { key: 'phone', label: 'Telefone', required: false },
-            { key: 'postIds', label: 'Postos desta empresa', type: 'multi', options: data.posts.map(post => ({ value: post.id, label: post.name })), required: false, hint: 'Selecione os postos globais que existem nesta empresa.' },
-            { key: 'status', label: 'Status', options: [
-              { value: 'ativo', label: 'Ativo' },
-              { value: 'inativo', label: 'Inativo' },
-              { value: 'implantacao', label: 'Em implantação' },
-            ] },
-          ]}
-          initial={editing || { status: 'ativo' }}
-          onClose={() => { setEditing(undefined); setCreating(false); }}
-          onSave={async value => {
-            await api('/records/clients', value);
-            await refresh();
-            notify('Cliente e postos salvos.');
-          }}
-        />
-      )}
     </div>
   );
 }

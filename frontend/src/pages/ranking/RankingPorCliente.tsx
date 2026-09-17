@@ -38,18 +38,6 @@ export default function RankingPorCliente() {
 
   return (
     <div className="space-y-3.5 page-enter">
-      {/* ── Cabeçalho da Página Padrão Corporativo Grupo Combate ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 pb-1">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#071e4d] text-white flex items-center justify-center shadow-xs flex-shrink-0">
-            <Trophy size={20} />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 leading-tight">Ranking por Cliente</h1>
-            <p className="text-xs text-slate-500 font-medium">Classificação e desempenho dos colaboradores por empresa parceira.</p>
-          </div>
-        </div>
-      </div>
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -298,7 +286,7 @@ export default function RankingPorCliente() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
                   <thead>
-                    <tr className="bg-[#071e4d] text-white font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
+                    <tr className="bg-slate-50/90 text-slate-500 border-b border-slate-200 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">
                       <th className="py-2.5 px-3 text-center w-10">#</th>
                       <th className="py-2.5 px-3">Colaborador</th>
                       <th className="py-2.5 px-3">Matrícula</th>
@@ -370,7 +358,7 @@ export default function RankingPorCliente() {
                 placeholder="Buscar cliente..."
                 value={clientSearch}
                 onChange={e => setClientSearch(e.target.value)}
-                className="w-full text-xs pl-7 pr-2.5 py-1.5 border border-slate-200 rounded-lg bg-slate-50/50 text-slate-700 outline-none focus:ring-1 focus:ring-blue-400"
+                className="w-full text-xs pl-9 pr-2.5 py-1.5 border border-slate-200 rounded-lg bg-slate-50/50 text-slate-700 outline-none focus:ring-1 focus:ring-blue-400"
               />
             </div>
 

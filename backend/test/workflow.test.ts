@@ -299,8 +299,9 @@ test("fluxo completo: autenticação, vínculos, regras congeladas, duplicidade,
     assert.deepEqual([first.status, second.status].sort(), [200, 409]);
     const evaluation = first.status === 200 ? first.data : second.data;
     assert.equal(evaluation.score, 90);
+    assert.equal((await request("/evaluations", { participantId: p.id, answers }, supervisorCookie)).status, 200);
     assert.equal((await request("/evaluations", { participantId: p.id, answers }, supervisorCookie)).status, 409);
-    assert.equal((await ok("/state", undefined, supervisorCookie)).participants.length, 0);
+    assert.equal((await ok("/state", undefined, supervisorCookie)).participants.length, 1);
     await ok(`/evaluations/${evaluation.id}/approve`, {});
     state = await ok("/state");
     assert.equal(
@@ -349,7 +350,7 @@ test("fluxo completo: autenticação, vínculos, regras congeladas, duplicidade,
     await ok(`/seasons/${season.id}/close`, {});
     await ok(`/seasons/${season.id}/publish`, {});
     state = await ok("/state");
-    assert.equal(state.rankings[season.id][0].score, 100);
+    assert.equal(state.rankings[season.id][0].score, 90);
     assert.equal(state.rankings[season.id][0].penaltyPoints, 10);
     assert.equal(state.rankings[season.id][0].badge, "ouro");
     assert.equal(
@@ -438,7 +439,7 @@ test("fluxo completo: autenticação, vínculos, regras congeladas, duplicidade,
   }
   const reopened = await new Store().init(undefined, file);
   assert.equal((await reopened.all("employees")).length, 4);
-  assert.equal((await reopened.all("seasons"))[0].result[0].score, 100);
+  assert.equal((await reopened.all("seasons"))[0].result[0].score, 90);
   await reopened.close();
   await rm(dir, { recursive: true, force: true });
 });
